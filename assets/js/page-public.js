@@ -340,7 +340,7 @@ function about(){
   return pageHead({
     crumbs: crumb('index.html',t('navHome'))+'<span>'+t('navAbout')+'</span>',
     badge:true, badge:L_('الأستاذة','La professeure'), badgeIcon:'user',
-    title:L_('الأستاذة كرجيج','Prof. Kerdjidj'),
+    title:L_('الأستاذة قرجيج','Prof. Kerdjidj'),
     sub:L_('أستاذة اللغة الفرنسية للطور المتوسط — خميس مليانة، ولاية عين الدفلى. أكثر من 12 سنة في تدريس الفرنسية لتلاميذ 1AM إلى 4AM وتحضيرهم لشهادة التعليم المتوسط (BEM).',
            'Professeure de français au cycle moyen — Khemis Miliana, wilaya d’Aïn Defla. Plus de 12 ans d’enseignement du français, de la 1AM à la 4AM, et de préparation au BEM.')
   }) + `

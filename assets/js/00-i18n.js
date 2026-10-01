@@ -4,11 +4,11 @@
    ══════════════════════════════════════════════════════════════════ */
 window.I18N = {
   /* ── Commun ── */
-  brand:["الأستاذة كرجيج","Prof. Kerdjidj"],
+  brand:["الأستاذة قرجيج","Prof. Kerdjidj"],
   brandSub:["منصة اللغة الفرنسية","Plateforme de Français"],
-  siteTitle:["منصة الأستاذة كرجيج للغة الفرنسية","Plateforme Prof. Kerdjidj — Français"],
+  siteTitle:["منصة الأستاذة قرجيج للغة الفرنسية","Plateforme Prof. Kerdjidj — Français"],
   slogan:["الفرنسية بإتقان… من المتوسط إلى شهادة BEM","Le français maîtrisé, du collège au BEM"],
-  tagline:["منصة مراجعة وتدريب في اللغة الفرنسية لتلاميذ الطور المتوسط — دروس منظّمة، تمارين تفاعلية، وتتبع لتطوّرك خطوة بخطوة. بإشراف الأستاذة كرجيج، خميس مليانة.",
+  tagline:["منصة مراجعة وتدريب في اللغة الفرنسية لتلاميذ الطور المتوسط — دروس منظّمة، تمارين تفاعلية، وتتبع لتطوّرك خطوة بخطوة. بإشراف الأستاذة قرجيج، خميس مليانة.",
            "Plateforme de révision et d'entraînement en français pour les collégiens — cours structurés, exercices interactifs et suivi de votre progression, pas à pas. Sous la direction de Prof. Kerdjidj, Khemis Miliana."],
   mockTag:["نسخة تجريبية — بيانات توضيحية","Version démo — données fictives"],
   notConnected:["المنصة غير موصولة بقاعدة البيانات بعد — الدخول الحقيقي يتفعّل بعد النشر على Firebase.","Plateforme non connectée à Firestore — la connexion réelle s'active après le déploiement."],
@@ -109,7 +109,7 @@ window.I18N = {
   darkMode:["الوضع الليلي","Mode sombre"], lightMode:["الوضع النهاري","Mode clair"],
   /* ── HÉROS ── */
   heroBadge:["فضاء مراجعة وتدريب · طور المتوسط","Espace de révision & d'entraînement · Collège"],
-  heroT1:["منصة","Plateforme"], heroT2:["الأستاذة كرجيج","Prof. Kerdjidj"], heroT3:["للغة الفرنسية","de Français"],
+  heroT1:["منصة","Plateforme"], heroT2:["الأستاذة قرجيج","Prof. Kerdjidj"], heroT3:["للغة الفرنسية","de Français"],
   heroLead:["ليست منصة نقاط مدرسية — بل فضاء تدريب حقيقي: دروس مرتّبة حسب المحور، تمارين واختبارات تفاعلية بتصحيح فوري، ونظام تطوّر يمنحك نقاط خبرة (XP) وأوسمة كلما تدرّبت. تابع تقدّمك بنفسك، خطوة بخطوة.",
             "Ce n'est pas un relevé de notes scolaire — c'est un vrai terrain d'entraînement : cours classés par axe, exercices et quiz interactifs à correction instantanée, et un système de progression qui vous donne des XP et des badges à chaque entraînement. Suivez vous-même votre évolution, pas à pas."],
   heroCta1:["ابدأ التدريب مجاناً","Commencer l'entraînement"], heroCta2:["تصفّح الدروس","Parcourir les cours"],
@@ -203,7 +203,7 @@ window.I18N = {
         "Ajouter un cours, un quiz, un exercice ou un groupe en quelques minutes depuis un seul panneau."],
   /* ── Emploi du temps ── */
   ttBadge:["الدروس الخصوصية","Cours particuliers"], ttTitle:["مواقيت الحصص الأسبوعية","Emploi du temps hebdomadaire"],
-  ttSub:["إشراف <b>الأستاذة كرجيج</b> — خميس مليانة. الجدول يُحدَّث مباشرة من لوحة الإدارة، ويمكن طباعته.",
+  ttSub:["إشراف <b>الأستاذة قرجيج</b> — خميس مليانة. الجدول يُحدَّث مباشرة من لوحة الإدارة، ويمكن طباعته.",
          "Sous la direction de <b>Prof. Kerdjidj</b> — Khemis Miliana. Mis à jour en direct, imprimable."],
   ttTime:["التوقيت","Horaire"], ttSchool:["المدرسة / المكان","École / Lieu"], ttTeacher:["الأستاذة","Professeure"],
   ttGroup:["الفوج","Groupe"], ttLevel:["المستوى","Niveau"], ttMode:["الوضع","Mode"], ttSeats:["المقاعد","Places"],
@@ -250,7 +250,7 @@ window.I18N = {
   diff1:["سهل","Facile"], diff2:["متوسط","Moyen"], diff3:["صعب","Difficile"],
   fromBank:["من بنك الأسئلة","de la banque"], expl:["الشرح","Explication"],
   /* ── Professeure ── */
-  abBadge:["من نحن","À propos"], abTitle:["الأستاذة كرجيج — أكثر من 12 عاماً في تدريس الفرنسية",
+  abBadge:["من نحن","À propos"], abTitle:["الأستاذة قرجيج — أكثر من 12 عاماً في تدريس الفرنسية",
            "Prof. Kerdjidj — plus de 12 ans d'enseignement du français"],
   abLead:["أستاذة لغة فرنسية للطور المتوسط في خميس مليانة. منهجيتها بسيطة: <b>الفهم قبل الحفظ، والتدريب قبل الاختبار</b>. لذلك بنَت هذه المنصة — لتكون المراجعة متاحة لتلاميذها في أي وقت، ولتجعل التدريب عادة يومية ممتعة بدل أن يكون واجباً مؤجَّلاً.",
           "Professeure de français au collège à Khemis Miliana. Sa méthode est simple : <b>comprendre avant d'apprendre par cœur, s'entraîner avant d'être évalué</b>. C'est pour cela qu'elle a créé cette plateforme — rendre la révision disponible à tout moment et transformer l'entraînement en habitude quotidienne."],
@@ -283,7 +283,7 @@ window.I18N = {
   fqSub:["لم تجد جوابك؟ تواصل معنا مباشرة عبر واتساب أو الهاتف.","Pas de réponse ? Contactez-nous par WhatsApp ou téléphone."],
   fqCta:["اطرح سؤالك","Posez votre question"],
   fq1q:["هل هذه المنصة مرتبطة بالمدرسة أو بوزارة التربية؟","Cette plateforme est-elle liée à l'école ou au ministère ?"],
-  fq1a:["لا إطلاقاً. المنصة فضاء خاص تابع للأستاذة كرجيج، مخصّص للمراجعة والتدريب فقط. لا توجد فيها نقاط مدرسية رسمية ولا كشوف ولا تسجيل في المعدل العام.",
+  fq1a:["لا إطلاقاً. المنصة فضاء خاص تابع للأستاذة قرجيج، مخصّص للمراجعة والتدريب فقط. لا توجد فيها نقاط مدرسية رسمية ولا كشوف ولا تسجيل في المعدل العام.",
         "Absolument pas. C'est un espace privé de Prof. Kerdjidj dédié à la révision et à l'entraînement : aucune note scolaire officielle, aucun bulletin, aucun impact sur la moyenne."],
   fq2q:["ما هو نظام «نقاط التطوّر (XP)»؟","Qu'est-ce que le système d'XP ?"],
   fq2a:["نظام تحفيزي داخلي: كل إجابة صحيحة تمنحك نقاط خبرة حسب صعوبة السؤال وسرعتك ودقّتك. تجمع XP لترتقي في المستويات (مبتدئ ← أستاذ) وتفتح الأوسمة. هدفه جعل المراجعة عادة يومية، وليس تقييمك مدرسياً.",
@@ -328,7 +328,7 @@ window.I18N = {
            "Espace de révision et d'entraînement en français pour les collégiens — cours structurés, exercices interactifs à correction instantanée et système de progression motivant. Khemis Miliana, Algérie."],
   ftNav:["روابط سريعة","Liens rapides"], ftLevels:["المستويات","Niveaux"], ftAx:["المحاور","Les axes"],
   ftContact:["التواصل","Contact"], ftSpace:["فضاء التلميذ","Espace élève"],
-  ftRights:["منصة الأستاذة كرجيج للغة الفرنسية — جميع الحقوق محفوظة","Plateforme Prof. Kerdjidj — Tous droits réservés"],
+  ftRights:["منصة الأستاذة قرجيج للغة الفرنسية — جميع الحقوق محفوظة","Plateforme Prof. Kerdjidj — Tous droits réservés"],
   ftMade:["صُمّمت وبُنيت بعناية في خميس مليانة 🇩🇿","Conçue et développée avec soin à Khemis Miliana 🇩🇿"],
   ftPrivacy:["سياسة الخصوصية","Confidentialité"], ftTerms:["شروط الاستخدام","Conditions"],
   ftNote:["هذه المنصة مستقلة وغير مرتبطة بأي مؤسسة مدرسية رسمية.","Cette plateforme est indépendante et n'est liée à aucun établissement scolaire officiel."],
@@ -351,7 +351,7 @@ window.I18N = {
   /* ── الأسئلة الشائعة · FAQ ── */
   faqQ1:["هل هذه المنصّة مرتبطة بالمدرسة أو بوزارة التربية؟",
          "Cette plateforme est-elle liée à l’école ou au ministère de l’Éducation ?"],
-  faqA1:["<b>لا.</b> هذه منصّة مستقلّة تماماً أنشأتها الأستاذة كرجيج لمساعدة تلاميذها على المراجعة والتدريب. ليست مرتبطة بأي متوسطة ولا بأي مديرية تربية، ولا تُغني عن المتابعة المدرسية الرسمية.",
+  faqA1:["<b>لا.</b> هذه منصّة مستقلّة تماماً أنشأتها الأستاذة قرجيج لمساعدة تلاميذها على المراجعة والتدريب. ليست مرتبطة بأي متوسطة ولا بأي مديرية تربية، ولا تُغني عن المتابعة المدرسية الرسمية.",
          "<b>Non.</b> Il s’agit d’une plateforme entièrement indépendante, créée par Prof. Kerdjidj pour aider ses élèves à réviser et s’entraîner. Elle n’est rattachée à aucun CEM ni à aucune direction de l’éducation, et ne remplace pas le suivi scolaire officiel."],
   faqQ2:["هل تُحتسب نتائج التمارين في المعدّل الفصلي أو الكشف؟",
          "Les résultats des exercices comptent-ils dans la moyenne ou le bulletin ?"],
@@ -426,7 +426,7 @@ window.I18N = {
   adTt:["المواقيت","Emploi du temps"], adProg:["التقدّم","Progression"], adSite:["الموقع","Site"],
   adAnn:["الإعلانات","Annonces"], adMsg:["الرسائل","Messages"], adSet:["الإعدادات","Paramètres"],
   adMedia:["الوسائط","Médias"], adStats:["الإحصائيات","Statistiques"],
-  adHi:["أهلاً، أستاذة كرجيج","Bonjour Prof. Kerdjidj"],
+  adHi:["أهلاً، أستاذة قرجيج","Bonjour Prof. Kerdjidj"],
   adSub:["لديك 12 تمريناً بانتظار المراجعة، و3 رسائل جديدة، وفوجاً واحداً بمقاعد شاغرة.",
          "Vous avez 12 exercices à revoir, 3 nouveaux messages et 1 groupe avec des places libres."],
   adQuick:["إضافة سريعة","Ajout rapide"], adNewLesson:["درس جديد","Nouveau cours"], adNewQuiz:["اختبار جديد","Nouveau quiz"],
@@ -593,7 +593,7 @@ window.I18N = {
     });
     document.querySelectorAll('.lgsw button').forEach(b=>b.classList.toggle('on', b.dataset.lang===lang));
     const t = document.querySelector('title'); if(t) t.textContent = rtl
-      ? 'منصة الأستاذة كرجيج للغة الفرنسية' : 'Plateforme Prof. Kerdjidj — Français';
+      ? 'منصة الأستاذة قرجيج للغة الفرنسية' : 'Plateforme Prof. Kerdjidj — Français';
   }
   /** Change la langue : traduit le DOM, mémorise le choix, puis notifie (pk:lang).
    *  Garde anti-récursion : aucun événement si la langue n'a pas changé. */

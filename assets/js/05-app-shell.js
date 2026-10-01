@@ -58,7 +58,7 @@ function sidebar(role, active){
     ? `<span class="ar">لوحة الإدارة</span><span class="fr">Administration</span>`
     : `<span class="ar">فضاء التلميذ</span><span class="fr">Espace Élève</span>`;
   const me = isAdm
-    ? {ini:'PK', ar:'الأستاذة كرجيج', fr:'Prof. Kerdjidj', sub:'Administratrice', col:'linear-gradient(140deg,#1E4FD8,#0B2470)'}
+    ? {ini:'PK', ar:'الأستاذة قرجيج', fr:'Prof. Kerdjidj', sub:'Administratrice', col:'linear-gradient(140deg,#1E4FD8,#0B2470)'}
     : (function(){ const s=window.PKdata.me;
         if(!s) return {ini:'··', ar:'', fr:'', sub:'', col:'linear-gradient(140deg,#8a93a6,#5b6472)'};
         const ini=((s.fr||s.ar||'--').split(' ').map(w=>w[0]).join('')).slice(0,2).toUpperCase();

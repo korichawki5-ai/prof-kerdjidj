@@ -486,6 +486,22 @@ sec("9 · Cohérence entre le code et firestore.rules");
     return files.every(f => !/style="[^"]*grid-template-columns/.test(fs.readFileSync(path.join(ROOT,"assets/js",f),"utf8")));
   })());
   ck("Champs à 16px sur mobile (anti-zoom iOS)", /input,select,textarea\{font-size:16px\}/.test(fs.readFileSync(path.join(ROOT,"assets/css/07-responsive.css"),"utf8")));
+  ck("Nom arabe de la professeure = قرجيج (jamais كرجيج)", (() => {
+    const files = [];
+    const walk = d => fs.readdirSync(path.join(ROOT, d || ".")).forEach(f => {
+      const rel = (d ? d + "/" : "") + f;
+      const st = fs.statSync(path.join(ROOT, rel));
+      if (st.isDirectory() && !["node_modules", ".git", "tests"].includes(f)) return walk(rel);
+      if (st.isFile() && /\.(html|js|css|json|xml|txt)$/.test(f)) files.push(rel);  // les .md de doc gardent la mention historique
+    });
+    walk();
+    const bad = files.filter(f => fs.readFileSync(path.join(ROOT, f), "utf8").includes("كرجيج"));
+    return bad.length === 0 ? true : bad.join(", ");
+  })());
+  ck("Nom arabe présent dans le titre de la page", (() => {
+    const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+    return html.includes("الأستاذة قرجيج") && /<title>[^<]*قرجيج/.test(html);
+  })());
   ck("Écran admin = connexion seule (pas d'inscription)", (() => {
     const shell = fs.readFileSync(path.join(ROOT,"assets/js/05-app-shell.js"), "utf8");
     return /isAdm \? '' : `<div class="tabs gate__tabs">/.test(shell)

@@ -162,7 +162,7 @@ function buildHeader(active){
       <a class="br" href="index.html">
         <span class="br__m">${logo(48)}</span>
         <span class="br__t">
-          <span class="br__n"><span class="ar">الأستاذة كرجيج</span><span class="fr">Prof. Kerdjidj</span></span>
+          <span class="br__n"><span class="ar">الأستاذة قرجيج</span><span class="fr">Prof. Kerdjidj</span></span>
           <span class="br__sb"><span class="ar">منصة اللغة الفرنسية</span><span class="fr">Plateforme de Français</span></span>
         </span>
       </a>
@@ -194,7 +194,7 @@ function buildFooter(){
           <div class="ft__br">
             <span class="br__m">${logo(46)}</span>
             <span class="br__t">
-              <span class="br__n"><span class="ar">الأستاذة كرجيج</span><span class="fr">Prof. Kerdjidj</span></span>
+              <span class="br__n"><span class="ar">الأستاذة قرجيج</span><span class="fr">Prof. Kerdjidj</span></span>
               <span class="br__sb">Plateforme de Français</span>
             </span>
           </div>

@@ -7,9 +7,9 @@ window.PKdata = (function(){
 
 /* ───────── PARAMÈTRES DU SITE ───────── */
 const settings = {
-  siteNameAr:"منصة الأستاذة كرجيج للغة الفرنسية",
+  siteNameAr:"منصة الأستاذة قرجيج للغة الفرنسية",
   siteNameFr:"Plateforme Prof. Kerdjidj — Français",
-  teacherNameAr:"الأستاذة كرجيج", teacherNameFr:"Prof. Kerdjidj",
+  teacherNameAr:"الأستاذة قرجيج", teacherNameFr:"Prof. Kerdjidj",
   sloganAr:"الفرنسية بإتقان… من المتوسط إلى شهادة BEM",
   sloganFr:"Le français maîtrisé, du collège au BEM",
   city:"Khemis Miliana", wilaya:"Aïn Defla", country:"Algérie",
