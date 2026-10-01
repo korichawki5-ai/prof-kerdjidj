@@ -1,16 +1,21 @@
 /* ══════════════════════════════════════════════════════════════════
    06-animations.css · Apparitions, transitions, micro-interactions
    ══════════════════════════════════════════════════════════════════ */
-.rv{opacity:0;transform:translateY(26px);transition:opacity var(--t4) var(--e2),transform var(--t4) var(--e2)}
-.rv.in{opacity:1;transform:none}
-.rv-l{opacity:0;transform:translateX(-32px)}
-.rv-r{opacity:0;transform:translateX(32px)}
-[dir="rtl"] .rv-l{transform:translateX(32px)}
-[dir="rtl"] .rv-r{transform:translateX(-32px)}
-.rv-l.in,.rv-r.in{opacity:1;transform:none}
-.rv-s{opacity:0;transform:scale(.93)}
-.rv-s.in{opacity:1;transform:none}
-.rv.in{transition-delay:var(--d,0ms)}
+/* ── Apparitions : SÛRES PAR DÉFAUT ──────────────────────────────
+   Un bloc n'est masqué QUE si le JS lui ajoute la classe « rv-init »
+   (uniquement pour ce qui est encore SOUS l'écran). Si le JS ne tourne
+   pas, échoue, ou oublie un bloc : tout reste visible. Plus jamais de
+   « trou » invisible qui occupe quand même sa place. */
+.rv,.rv-l,.rv-r,.rv-s{opacity:1;transform:none;
+  transition:opacity var(--t4) var(--e2),transform var(--t4) var(--e2)}
+.rv-init{opacity:0}
+.rv-init:not(.rv-l):not(.rv-r):not(.rv-s){transform:translateY(26px)}
+.rv-init.rv-l{transform:translateX(-32px)}
+[dir="rtl"] .rv-init.rv-l{transform:translateX(32px)}
+.rv-init.rv-r{transform:translateX(32px)}
+[dir="rtl"] .rv-init.rv-r{transform:translateX(-32px)}
+.rv-init.rv-s{transform:scale(.93)}
+.rv.in,.rv-l.in,.rv-r.in,.rv-s.in{transition-delay:var(--d,0ms)}
 /* décalage en cascade pour les grilles */
 .cas>*{--d:0ms}
 .cas>*:nth-child(2){--d:70ms}.cas>*:nth-child(3){--d:140ms}.cas>*:nth-child(4){--d:210ms}

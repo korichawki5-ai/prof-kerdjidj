@@ -363,24 +363,38 @@ function openPalette(){
 
 /* ══════════ 9. ANIMATIONS AU DÉFILEMENT ══════════ */
 function initReveal(root){
-  const els = $$('.rv', root||document);
+  /* TOUTES les variantes d'apparition : .rv, .rv-l, .rv-r, .rv-s
+     (l'oubli d'une variante laissait des blocs invisibles qui gardaient leur place) */
+  const all = $$('.rv, .rv-l, .rv-r, .rv-s', root||document);
+  if(!all.length) return;
+  const els = all.filter(e=> !e.classList.contains('in'));
   if(!els.length) return;
-  if(!('IntersectionObserver' in window)){ els.forEach(e=>e.classList.add('in')); return; }
+
+  const reveal = el => { el.classList.remove('rv-init'); el.classList.add('in'); };
+
+  if(!('IntersectionObserver' in window)){ els.forEach(reveal); return; }
   const io = new IntersectionObserver(en=>{
-    en.forEach(x=>{ if(x.isIntersecting){ x.target.classList.add('in'); io.unobserve(x.target); } });
+    en.forEach(x=>{ if(x.isIntersecting){ reveal(x.target); io.unobserve(x.target); } });
   },{rootMargin:'0px 0px -7% 0px', threshold:.06});
-  els.forEach(e=>io.observe(e));
-  /* FILET DE SÉCURITÉ : l'animation d'apparition est décorative — elle ne doit
-     JAMAIS laisser un bloc invisible qui occupe quand même sa place à l'écran.
-     (1) 1,2 s : tout ce qui est déjà à l'écran devient visible ;
-     (2) 3,2 s : tout le reste devient visible, quoi qu'il arrive. */
-  const forceReveal = all => $$('.rv').forEach(e=>{
-    if(e.classList.contains('in')) return;
-    const r = e.getBoundingClientRect(), vh = window.innerHeight || 800;
-    if(all || (r.top < vh*1.1 && r.bottom > -60)) e.classList.add('in');
+
+  const vh = window.innerHeight || 800;
+  els.forEach(e=>{
+    const r = e.getBoundingClientRect();
+    /* ce qui est déjà à l'écran s'affiche immédiatement, sans animation */
+    if(r.top <= vh*0.92){ reveal(e); return; }
+    e.classList.add('rv-init');      /* seulement le reste, hors écran */
+    io.observe(e);
   });
-  setTimeout(()=>forceReveal(false), 1200);
-  setTimeout(()=>forceReveal(true),  3200);
+
+  /* FILET DE SÉCURITÉ : l'animation est décorative — elle ne doit JAMAIS
+     laisser un bloc invisible occupant sa place dans la page.
+     (1) 1,2 s : tout ce qui est à l'écran devient visible ;
+     (2) 3,2 s : absolument tout devient visible, quoi qu'il arrive. */
+  setTimeout(()=>$$('.rv-init').forEach(el=>{
+    const r = el.getBoundingClientRect();
+    if(r.top < (window.innerHeight||800)*1.1 && r.bottom > -60) reveal(el);
+  }), 1200);
+  setTimeout(()=>$$('.rv-init').forEach(reveal), 3200);
 }
 function initCounters(root){
   $$('.cnt-up', root||document).forEach(el=>{

@@ -602,8 +602,13 @@ sec("9 · Cohérence entre le code et firestore.rules");
 
   /* ── Apparitions : jamais de bloc invisible qui occupe l'écran ── */
   const uiSrc = fs.readFileSync(path.join(ROOT,"assets/js/02-ui.js"), "utf8");
-  ck("Filet de sécurité des apparitions (1,2 s à l'écran)", /setTimeout\(\(\)=>forceReveal\(false\), 1200\)/.test(uiSrc));
-  ck("Filet de sécurité des apparitions (3,2 s tout le reste)", /setTimeout\(\(\)=>forceReveal\(true\),\s*3200\)/.test(uiSrc));
+  const anims = fs.readFileSync(path.join(ROOT,"assets/css/06-animations.css"), "utf8");
+  ck("Apparitions sûres : état masqué uniquement via .rv-init", /\.rv-init\{opacity:0\}/.test(anims));
+  ck("Apparitions sûres : visible par défaut (rv, rv-l, rv-r, rv-s)", /\.rv,\.rv-l,\.rv-r,\.rv-s\{opacity:1;transform:none;/.test(anims));
+  ck("Aucune variante masquée en dur (plus de « trou » invisible)", !/\.rv-s\{opacity:0\}|\.rv-l\{opacity:0\}|\.rv-r\{opacity:0\}|\.rv\{opacity:0/.test(anims));
+  ck("Le moteur couvre TOUTES les variantes (.rv, .rv-l, .rv-r, .rv-s)", /\.rv, \.rv-l, \.rv-r, \.rv-s/.test(uiSrc));
+  ck("Filet de sécurité : 1,2 s puis 3,2 s", /1200\).*3000|1200\)/.test(uiSrc) && /3200\)/.test(uiSrc));
+  ck("Ce qui est déjà à l'écran n'est jamais masqué", /if\(r\.top <= vh\*0\.92\)\{ reveal\(e\); return; \}/.test(uiSrc));
   ck("Héros mobile : cartes de démonstration masquées", /\.bx--notes,\.bx--att,\.chip-f\{display:none\}/.test(resp));
   ck("Héros mobile : espacement du bloc visuel réduit", /\.hero__i\{gap:22px\}/.test(resp) && /\.bento\{gap:12px;grid-auto-rows:auto\}/.test(resp));
   ck("Héros mobile : boutons d'appel à l'action resserrés", /\.hero__cta\{margin-block-end:22px;gap:10px\}/.test(resp));
@@ -619,6 +624,23 @@ sec("10 · Porte élève : mode porte appliqué au chargement (sans compte)");
   const h = helpers(dom);
   ck("Formulaire de connexion visible sans défiler", !!h.q(".gate [data-gate-login]") && !!h.q("[data-gate-google]"));
   ck("Aucune erreur JS (porte mobile)", errs.length === 0, errs[0] || "");
+  dom.window.close();
+}
+
+/* ═══════════ 11. AUCUN BLOC INVISIBLE : le trou entre les sections ═══════════ */
+sec("11 · Accueil : le contenu des sections ne peut plus rester invisible");
+{
+  const { dom, errs } = await boot("index.html");
+  await wait(3600);                                  /* après les filets de sécurité */
+  const d = dom.window.document;
+  const variants = [...d.querySelectorAll(".rv, .rv-l, .rv-r, .rv-s")];
+  ck("Blocs animés trouvés (rv · rv-l · rv-r · rv-s)", variants.length >= 10, variants.length + " blocs");
+  const stillHidden = variants.filter(e => e.classList.contains("rv-init"));
+  ck("Aucun bloc ne reste masqué après 3,6 s", stillHidden.length === 0,
+     stillHidden.map(e => e.className).slice(0, 4).join(" | "));
+  const notIn = variants.filter(e => !e.classList.contains("in"));
+  ck("Tous les blocs ont été révélés (.in)", notIn.length === 0, notIn.map(e => e.className).slice(0, 4).join(" | "));
+  ck("Aucune erreur JS (accueil)", errs.length === 0, errs[0] || "");
   dom.window.close();
 }
 
