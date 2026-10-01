@@ -69,6 +69,15 @@ function friendlyError(e){
   if(key) return lang === 'ar' ? ERR[key][0] : ERR[key][1];
   return (e && e.message) ? String(e.message) : (lang === 'ar' ? 'حدث خطأ غير متوقّع.' : 'Erreur inattendue.');
 }
+/** Repli garanti : si une opération réseau ne répond pas, on n'attend pas
+    indéfiniment — l'interface s'affiche avec ce qu'on a (jamais d'écran blanc). */
+function withTimeout(p, ms, fallback){
+  return Promise.race([
+    Promise.resolve(p).catch(()=> fallback),
+    new Promise(res => setTimeout(()=>{ console.warn('[PK] delai depasse ('+ms+' ms) — repli'); res(fallback); }, ms))
+  ]);
+}
+
 /** Signale une erreur : console + message visible, sans jamais casser l'interface. */
 function reportError(e, extra){
   console.error('[PK]', e);
@@ -134,7 +143,11 @@ async function init(){
       })();
     });
     await loadSettings();                // paramètres publics (settings/main)
-    const u = await firstAuth;           // attend l'état d'authentification + amorçage
+    const u = await withTimeout(firstAuth, 9000, 'timeout');  // jamais d'attente infinie
+    if(u === 'timeout'){                 // réseau lent : l'interface s'affiche déjà
+      console.warn('[PK] authentification lente — affichage immediat');
+      return {mock:false, auth, db, storage, user:null, pending:true};
+    }
     if(!u) await hydrate('anon');        // visiteur : contenu public uniquement
     return {mock:false, auth, db, storage, user:u};
   }catch(err){
@@ -244,12 +257,13 @@ async function hydrate(role){
   if(MOCK || !db) return;
   const {ff} = FB, D = window.PKdata;
   const publicCols = ['lessons','exercises','announcements'];
-  const tasks = publicCols.map(n => ff.getDocs(ff.collection(db,n)));
+  const tasks = publicCols.map(n => withTimeout(ff.getDocs(ff.collection(db,n)), 12000, null));
   const settled = await Promise.allSettled(tasks);
   settled.forEach((r,i)=>{
     const name = publicCols[i];
-    if(r.status === 'fulfilled') D[name] = r.value.docs.map(d=>({id:d.id, ...d.data()}));
-    else { console.warn('[PK] hydrate '+name+':', r.reason && r.reason.code); D[name] = D[name] || []; }
+    if(r.status === 'fulfilled' && r.value)
+      D[name] = r.value.docs.map(d=>({id:d.id, ...d.data()}));
+    else { console.warn('[PK] hydrate '+name+':', (r.value===null) ? 'delai depasse' : (r.reason && r.reason.code)); D[name] = D[name] || []; }
   });
   await hydrateGroups(role || roleOf());
 }
@@ -263,14 +277,14 @@ async function hydrateGroups(role){
   const push = list => list.forEach(g=>map.set(g.id, {id:g.id, ...g}));
   try{
     if(role === 'admin'){
-      const all = await ff.getDocs(ff.collection(db,'groups'));
-      push(all.docs.map(d=>d.data()));
+      const all = await withTimeout(ff.getDocs(ff.collection(db,'groups')), 12000, null);
+      if(all) push(all.docs.map(d=>d.data()));
     }else{
-      const pub = await ff.getDocs(ff.query(ff.collection(db,'groups'), ff.where('vis','==','public')));
-      push(pub.docs.map(d=>d.data()));
+      const pub = await withTimeout(ff.getDocs(ff.query(ff.collection(db,'groups'), ff.where('vis','==','public'))), 12000, null);
+      if(pub) push(pub.docs.map(d=>d.data()));
       const u = auth && auth.currentUser;
       if(u){
-        const vip = await ff.getDocs(ff.query(ff.collection(db,'groups'), ff.where('vipUids','array-contains',u.uid))).catch(()=>null);
+        const vip = await withTimeout(ff.getDocs(ff.query(ff.collection(db,'groups'), ff.where('vipUids','array-contains',u.uid))), 12000, null);
         if(vip) push(vip.docs.map(d=>d.data()));
       }
     }
@@ -388,10 +402,10 @@ async function hydrateMe(user){
     /* la professeure voit l'ensemble : élèves, comptes, progression, messages */
     if(prof.role === 'admin'){
       let students = [], users = [], progress = [], messages = [];
-      try{ const st = await ff.getDocs(ff.collection(db,'students'));   students = st.docs.map(d=>({id:d.id, ...d.data()})); }catch(e){ console.warn('[PK] students:', e && e.code); }
-      try{ const us = await ff.getDocs(ff.collection(db,'users'));      users    = us.docs.map(d=>({id:d.id, ...d.data()})); }catch(e){ console.warn('[PK] users:', e && e.code); }
-      try{ const pg = await ff.getDocs(ff.collection(db,'progress'));   progress = pg.docs.map(d=>({id:d.id, ...d.data()})); }catch(e){ console.warn('[PK] progress:', e && e.code); }
-      try{ const ms = await ff.getDocs(ff.collection(db,'messages'));   messages = ms.docs.map(d=>({id:d.id, ...normalizeMsg(d.data())})); }catch(e){ console.warn('[PK] messages:', e && e.code); }
+      try{ const st = await withTimeout(ff.getDocs(ff.collection(db,'students')), 15000, null); if(st) students = st.docs.map(d=>({id:d.id, ...d.data()})); }catch(e){ console.warn('[PK] students:', e && e.code); }
+      try{ const us = await withTimeout(ff.getDocs(ff.collection(db,'users')), 15000, null);    if(us) users    = us.docs.map(d=>({id:d.id, ...d.data()})); }catch(e){ console.warn('[PK] users:', e && e.code); }
+      try{ const pg = await withTimeout(ff.getDocs(ff.collection(db,'progress')), 15000, null); if(pg) progress = pg.docs.map(d=>({id:d.id, ...d.data()})); }catch(e){ console.warn('[PK] progress:', e && e.code); }
+      try{ const ms = await withTimeout(ff.getDocs(ff.collection(db,'messages')), 15000, null); if(ms) messages = ms.docs.map(d=>({id:d.id, ...normalizeMsg(d.data())})); }catch(e){ console.warn('[PK] messages:', e && e.code); }
       D.students = mergeProgress(students, users, progress);
       D.users = users;
       D.progress = progress;
@@ -570,7 +584,7 @@ function loadSettings(){
     if(raw) applySettings(JSON.parse(raw));
   }catch(e){}
   if(MOCK) return Promise.resolve(window.PKdata.settings);
-  return docGet('settings','main')
+  return withTimeout(docGet('settings','main'), 8000, null)
     .then(doc=>{ if(doc) applySettings(doc); return window.PKdata.settings; })
     .catch(()=> window.PKdata.settings);
 }
