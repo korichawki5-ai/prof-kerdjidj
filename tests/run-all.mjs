@@ -471,7 +471,7 @@ sec("9 · Cohérence entre le code et firestore.rules");
   ck("Aucun « allow read, write: if true »", !/allow\s+read\s*,\s*write\s*:\s*if\s+true/.test(rules));
   ck("Formulaire de contact encadré (role == 'contact')", /contactForm\(\)/.test(rules) && /role == 'contact'/.test(rules));
   ck("Séances VIP dans les règles", /vipUids/.test(rules) && /vis/.test(rules));
-  ck("Role admin non auto-attribuable", /resource\.data\.role == 'pending' && request\.resource\.data\.role == 'student'/.test(rules));
+  ck("Role admin non auto-attribuable", /(?:currentRole\(\)|resource\.data\.role) == 'pending' && request\.resource\.data\.role == 'student'/.test(rules));
   const fbjs = fs.readFileSync(path.join(ROOT,"assets/js/04-firebase.js"), "utf8");
   ck("Nouveau compte créé en 'student' (code)", /role:'student'/.test(fbjs) && /base\.role = 'student'/.test(fbjs));
   const usersBlock = (rules.match(/match \/users\/\{userId\} \{[\s\S]*?\n    \}/) || [''])[0];
@@ -642,6 +642,45 @@ sec("11 · Accueil : le contenu des sections ne peut plus rester invisible");
   ck("Tous les blocs ont été révélés (.in)", notIn.length === 0, notIn.map(e => e.className).slice(0, 4).join(" | "));
   ck("Aucune erreur JS (accueil)", errs.length === 0, errs[0] || "");
   dom.window.close();
+}
+
+/* ═══════════ 12. INSCRIPTION ÉLÈVE : aucun document partiel ═══════════ */
+sec("12 · Inscription élève : profil complet, jamais de document partiel");
+{
+  const R = f => fs.readFileSync(path.join(ROOT, f), "utf8");
+  const fb = R("assets/js/04-firebase.js");
+  const rules = R("firestore.rules");
+  const comp = R("assets/css/02-components.css");
+  const resp2 = R("assets/css/07-responsive.css");
+
+  ck("Inscription e-mail : le profil complet est créé (syncProfile)", /await syncProfile\(cred\.user\);/.test(fb));
+  ck("Inscription e-mail : profil complet AVANT l'écriture du nom", (() => {
+    const i = fb.indexOf("await syncProfile(cred.user);");
+    const j = fb.indexOf("setDoc(FB.ff.doc(db,'users',cred.user.uid), {name}");
+    return i >= 0 && j > i;
+  })());
+  ck("Réparation automatique des profils incomplets", /RÉPARATION AUTOMATIQUE/.test(fb) && /missing\.indexOf\('role'\) >= 0/.test(fb));
+  ck("Onboarding : le rôle n'est écrit que s'il vaut encore 'pending'", /if\(D\.me && D\.me\.role === 'pending'\) patch\.role = 'student';/.test(fb));
+
+  ck("Règles : rôle lu même s'il est absent (currentRole)", /function currentRole\(\) \{ return 'role' in resource\.data/.test(rules));
+  ck("Règles : document sans uid toléré (uidOk(id))", /function uidOk\(id\)/.test(rules) && /uidOk\(id\);/.test(rules));
+  ck("Règles : profileOnly reçoit l'identifiant (portée correcte)", /function profileOnly\(id\)/.test(rules) && /profileOnly\(userId\)/.test(rules));
+  ck("Règles : réparation 'none' → 'student' autorisée", /currentRole\(\) == 'none'\s*&& request\.resource\.data\.role == 'student'/.test(rules));
+  ck("Règles : profileOnly n'accorde jamais 'admin'", (() => {
+    const prof = (rules.match(/function profileOnly\(id\) \{[\s\S]*?\n    \}/) || [''])[0];
+    return prof.length > 30 && !/admin/.test(prof);
+  })());
+  ck("Règles : création de compte accepte 'student', refuse 'admin'", (() => {
+    const b = (rules.match(/match \/users\/\{userId\} \{[\s\S]*?\n    \}/) || [''])[0];
+    const c = (b.match(/allow create:[\s\S]*?;/) || [''])[0];
+    return /role == 'student'/.test(c) && !/admin/.test(c);
+  })());
+
+  ck("Onglets : les <button> sont stylés (.tabs>button)", /\.tab,\.tabs>button\{padding:10px 19px/.test(comp));
+  ck("Onglets : texte insécable + largeur stable", /flex:0 0 auto;background:none;border:0;cursor:pointer/.test(comp));
+  ck("Onglets : état actif visible (.on)", /\.tab\.on,\.tabs>button\.on\{background:var\(--surface\);color:var\(--ac\)/.test(comp));
+  ck("Admin mobile : 11 onglets en défilement horizontal", /#adTabs\{flex-wrap:nowrap;overflow-x:auto/.test(resp2));
+  ck("Admin mobile : onglets compacts ≤760 px", /#adTabs>button\{padding:10px 13px;font-size:\.82rem/.test(resp2));
 }
 
 console.log("\n\x1b[1m════ RÉSULTAT : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");

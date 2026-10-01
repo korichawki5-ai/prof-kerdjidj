@@ -172,10 +172,12 @@
 .tabs{display:flex;gap:5px;background:var(--bg2);padding:5px;border-radius:14px;border:1px solid var(--line);
   overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{padding:10px 19px;border-radius:10px;font-size:var(--fs-sm);font-weight:700;color:var(--tx2);
-  white-space:nowrap;transition:var(--t2) var(--e);display:inline-flex;align-items:center;gap:8px}
-.tab svg{width:16px;height:16px}
-.tab.on{background:var(--surface);color:var(--ac);box-shadow:var(--s1)}
+.tab,.tabs>button{padding:10px 19px;border-radius:10px;font-size:var(--fs-sm);font-weight:700;color:var(--tx2);
+  white-space:nowrap;transition:var(--t2) var(--e);display:inline-flex;align-items:center;gap:8px;
+  flex:0 0 auto;background:none;border:0;cursor:pointer;font-family:inherit}
+.tab svg,.tabs>button svg{width:16px;height:16px}
+.tab.on,.tabs>button.on{background:var(--surface);color:var(--ac);box-shadow:var(--s1)}
+.tab:hover,.tabs>button:hover{color:var(--ac)}
 .tab:hover:not(.on){color:var(--tx);background:var(--surface3)}
 .tab .cnt{font-family:var(--ffl);font-size:.7rem;font-weight:800;background:var(--bg3);color:var(--tx2);
   padding:1px 7px;border-radius:var(--pill)}

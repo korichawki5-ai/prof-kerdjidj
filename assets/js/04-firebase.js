@@ -201,9 +201,14 @@ async function registerEmail(name, email, password){
   if(MOCK) return authOff();
   try{
     const cred = await FB.fu.createUserWithEmailAndPassword(auth, email, password);
-    if(name) await FB.fu.updateProfile(cred.user, {displayName:name});
-    /* le nom est aussi écrit dans users/{uid} (règle : création de son propre doc) */
-    if(name) await FB.ff.setDoc(FB.ff.doc(db,'users',cred.user.uid), {name}, {merge:true}).catch(()=>{});
+    try{ if(name) await FB.fu.updateProfile(cred.user, {displayName:name}); }catch(e){ console.warn('[PK] displayName:', e && e.code); }
+    /* IMPORTANT : on crée d'abord le profil COMPLET (role, level, interests,
+       onboarded) — un document partiel bloquait l'inscription : sans champ
+       `role`, la règle d'écriture refusait l'étape « niveau + intérêts ». */
+    try{ await syncProfile(cred.user); }catch(e){ console.warn('[PK] profil (inscription):', e && e.code); }
+    /* puis on ajoute le nom (mise à jour d'un seul champ autorisé) */
+    try{ if(name) await FB.ff.setDoc(FB.ff.doc(db,'users',cred.user.uid), {name}, {merge:true}); }
+    catch(e){ console.warn('[PK] nom (inscription):', e && e.code); }
     return cred.user;
   }catch(e){ reportError(e); return null; }
 }
@@ -260,6 +265,27 @@ async function syncProfile(user){
     return base;
   }
   const data = snap.data() || {};
+
+  /* RÉPARATION AUTOMATIQUE : documents créés partiellement (ancienne
+     inscription e-mail : {name} seulement — ni role, ni level, ni onboarded).
+     Sans ces champs, l'étape « niveau + intérêts » était refusée par les
+     règles → l'inscription restait bloquée. On complète, puis on réessaie. */
+  const missing = ['role','level','interests','onboarded'].filter(k => !(k in data));
+  if(missing.length){
+    const fix = {};
+    if(!('level' in data))     fix.level = null;
+    if(!('interests' in data)) fix.interests = [];
+    if(!('onboarded' in data)) fix.onboarded = false;
+    if(!('name' in data) && user.displayName) fix.name = user.displayName;
+    try{ if(Object.keys(fix).length) await ff.setDoc(ref, fix, {merge:true}); }
+    catch(e){ console.warn('[PK] réparation profil:', e && e.code); }
+    if(missing.indexOf('role') >= 0){
+      try{ await ff.setDoc(ref, {role:'student'}, {merge:true}); data.role = 'student'; }
+      catch(e){ console.warn('[PK] rôle profil:', e && e.code); }
+    }
+    ['level','interests','onboarded'].forEach(k=>{ if(k in fix) data[k] = fix[k]; });
+  }
+
   ff.updateDoc(ref, {
     lastLoginAt: ff.serverTimestamp(),
     email: user.email || data.email || '',
@@ -455,8 +481,9 @@ async function completeOnboarding(data){
     level, interests, onboarded:true, onboardedAt:ff.serverTimestamp(),
     name: name || (D.me && D.me.ar) || u.displayName || ''
   };
-  /* la promotion pending → student est la seule transition autorisée */
-  if(!(D.me && D.me.role === 'admin')) patch.role = 'student';
+  /* On ne touche au rôle QUE s'il vaut encore 'pending' : écrire un rôle
+     absent ferait échouer la règle (champ non défini) → inscription bloquée. */
+  if(D.me && D.me.role === 'pending') patch.role = 'student';
   try{
     await ff.updateDoc(ff.doc(db,'users',u.uid), patch);
     await hydrateMe(u);

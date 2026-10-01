@@ -18,6 +18,12 @@
 @media (max-width:1024px){
   .app{grid-template-columns:1fr}
   .app--gate .sb{display:none}
+  /* ── PANNEAU D'ADMIN SUR TABLETTE / TÉLÉPHONE ── */
+  #adTabs{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+  #adTabs>button{scroll-snap-align:start}
+  .mn__a{width:100%;justify-content:flex-start}
+  .mn__a>.btn{flex:1 1 auto;justify-content:center}
+  .mn__t{gap:14px}
   .sb{position:static;height:auto;flex-direction:row;overflow-x:auto;gap:8px;padding:12px;
     border-inline-end:0;border-block-end:1px solid var(--line);scrollbar-width:none}
   .sb::-webkit-scrollbar{display:none}
@@ -132,6 +138,12 @@
   .tb__hint{display:flex}
 }
 @media (max-width:760px){
+  /* panneau d'administration : onglets compacts, titre lisible */
+  #adTabs{padding:4px;gap:4px;border-radius:12px}
+  #adTabs>button{padding:10px 13px;font-size:.82rem;gap:6px}
+  #adTabs>button svg{width:15px;height:15px}
+  .mn__t h1{font-size:1.28rem}
+  .mn__a .btn--sm{padding:10px 12px}
   /* cibles tactiles confortables (≥44 px) */
   .iact{width:44px;height:44px}
   .btn--i{width:44px;height:44px}

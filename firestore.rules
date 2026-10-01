@@ -26,13 +26,20 @@ service cloud.firestore {
     /** champs modifiés lors d'un update */
     function changed()   { return request.resource.data.diff(resource.data).affectedKeys(); }
     function isStr(v, max) { return v is string && v.size() <= max; }
+    /** rôle actuel, même si le champ n'existe pas (documents anciens) */
+    function currentRole() { return 'role' in resource.data ? resource.data.role : 'none'; }
+    /** uid du document : tolérant si le champ n'a jamais été écrit */
+    function uidOk(id) {
+      return !('uid' in request.resource.data) || request.resource.data.uid == id;
+    }
     /** un compte ne peut modifier que son profil — jamais son lien ni ses droits */
-    function profileOnly() {
+    function profileOnly(id) {
       return changed().hasOnly(['name','photoURL','email','level','interests','onboarded','onboardedAt','lastLoginAt','role'])
              && (!changed().has('role')
-                 || request.resource.data.role == resource.data.role
-                 || (resource.data.role == 'pending' && request.resource.data.role == 'student'))
-             && request.resource.data.uid == resource.data.uid;
+                 || request.resource.data.role == currentRole()
+                 || (currentRole() == 'pending' && request.resource.data.role == 'student')
+                 || (currentRole() == 'none'    && request.resource.data.role == 'student'))
+             && uidOk(id);
     }
     /** progression : champs autorisés pour l'élève lui-même */
     function progressOnly() {
@@ -94,7 +101,7 @@ service cloud.firestore {
                     && (!('role' in request.resource.data)
                         || request.resource.data.role == 'student'
                         || request.resource.data.role == 'pending');
-      allow update: if isAdmin() || (isSelf(userId) && profileOnly());
+      allow update: if isAdmin() || (isSelf(userId) && profileOnly(userId));
       allow delete: if isAdmin();
     }
 
