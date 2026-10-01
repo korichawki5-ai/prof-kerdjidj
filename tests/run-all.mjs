@@ -559,6 +559,46 @@ sec("9 · Cohérence entre le code et firestore.rules");
     const src = fs.readFileSync(path.join(ROOT,"assets/js",f), "utf8");
     return src.includes("window.PKapp.gateMode(true)") && src.includes("window.PKapp.gateMode(false)");
   }));
+
+  /* ── Jamais de page blanche : l'interface se dessine avant le réseau ── */
+  const shellSrc = fs.readFileSync(path.join(ROOT,"assets/js/05-app-shell.js"), "utf8");
+  ck("Shell : rendu immédiat avant l'hydratation", (() => {
+    const i1 = shellSrc.indexOf("doRender();"); const i2 = shellSrc.indexOf("window.PKdb.init().then(()=>{ doRender(); }");
+    return i1 >= 0 && i2 > i1;
+  })());
+  const adminSrc = fs.readFileSync(path.join(ROOT,"assets/js/page-admin.js"), "utf8");
+  ck("Admin : écran de connexion dessiné avant l'hydratation", (() => {
+    const i = adminSrc.indexOf("paint();                                    /* écran de connexion immédiat */");
+    const j = adminSrc.indexOf("window.PKdb.init().then(()=>paint(), ()=>paint());");
+    return i >= 0 && j > i;
+  })());
+  ck("Pages publiques : rendu avant l'hydratation", (() => {
+    const src = fs.readFileSync(path.join(ROOT,"assets/js/page-public.js"), "utf8");
+    return /go\(\);                                   \/\* rendu immédiat/.test(src);
+  })());
+  const fbSrc = fs.readFileSync(path.join(ROOT,"assets/js/04-firebase.js"), "utf8");
+  ck("CDN Firebase lent/bloqué : délai maximal (12 s)", /firebase-cdn-timeout/.test(fbSrc) && /Promise\.race/.test(fbSrc));
+
+  /* ── Cache navigateur : le code mis à jour arrive toujours ── */
+  ck("Tous les CSS/JS portent un numéro de version (?v=)", (() => {
+    const pages = [];
+    const walk = d => fs.readdirSync(path.join(ROOT,d||".")).forEach(f => {
+      const rel = (d ? d+"/" : "") + f, st = fs.statSync(path.join(ROOT,rel));
+      if (st.isDirectory() && !["node_modules",".git","tests","assets"].includes(f)) return walk(rel);
+      if (st.isFile() && f.endsWith(".html")) pages.push(rel);
+    });
+    walk();
+    const bad = pages.filter(rel => {
+      const html = fs.readFileSync(path.join(ROOT,rel), "utf8");
+      const refs = [...html.matchAll(/(?:href|src)="((?:\.\.\/)?assets\/[^"]+\.(?:css|js))"/g)].map(m => m[1]);
+      return refs.length === 0 || refs.some(r => !html.includes(r + "?v="));
+    });
+    return bad.length ? bad.join(", ") : true;
+  })());
+  ck("Cache CSS/JS plus jamais « immutable » un an", (() => {
+    const fj = fs.readFileSync(path.join(ROOT,"firebase.json"), "utf8");
+    return !/immutable/.test(fj) && /max-age=3600, must-revalidate/.test(fj);
+  })());
 }
 
 /* ═══════════ 10. PORTE ÉLÈVE SUR MOBILE : aucun défilement pour s'inscrire ═══════════ */

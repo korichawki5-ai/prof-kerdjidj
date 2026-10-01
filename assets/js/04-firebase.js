@@ -106,11 +106,17 @@ async function init(){
     return {mock:true};
   }
   try{
-    const [fa, fu, ff, fs] = await Promise.all([
-      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
-      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"),
-      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"),
-      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js")
+    const [fa, fu, ff, fs] = await Promise.race([
+      Promise.all([
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"),
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"),
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js")
+      ]),
+      /* filet de sécurité : un CDN lent/bloqué ne doit jamais figer le site */
+      new Promise((_,rej)=> setTimeout(()=>{
+        const e = new Error('firebase-cdn-timeout'); e.code = 'timeout'; rej(e);
+      }, 12000))
     ]);
     app     = fa.initializeApp(firebaseConfig);
     auth    = fu.getAuth(app);

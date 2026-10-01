@@ -1575,6 +1575,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window.PK.boot(null);
   document.addEventListener('pk:me', ()=>paint());
   document.addEventListener('pk:lang', ()=>paint());
+  paint();                                    /* écran de connexion immédiat */
   window.PKdb.init().then(()=>paint(), ()=>paint());
 });
 window.addEventListener('hashchange', ()=>{

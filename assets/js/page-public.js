@@ -553,6 +553,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const go=()=>{ mount();
     boot((document.documentElement.dataset.page||'index')+'.html');
     initCounters(); initProgress(); replayFx(document); };
+  go();                                   /* rendu immédiat : jamais de page blanche */
   window.PKdb.init().then(go, go);
   document.addEventListener('pk:lang', ()=>{ mount(); initReveal(); initProgress(); replayFx(document); });
   window.PK.setPalette([

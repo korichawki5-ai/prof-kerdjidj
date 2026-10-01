@@ -343,8 +343,10 @@ function bootApp(role, active, opts, render){
       window.PKi18n.translateDom(window.PKi18n.current());
       doRender(mn2);
     });
-    /* rendu initial APRÈS hydratation Firestore : jamais de données fantômes */
-    window.PKdb.init().then(()=>{ doRender(); });
+    /* rendu initial IMMÉDIAT : la page ne reste jamais blanche, même si Firestore
+       ou le CDN Firebase tarde (ou échoue) — puis rendu enrichi après hydratation. */
+    doRender();
+    window.PKdb.init().then(()=>{ doRender(); }, ()=>{ doRender(); });
     document.addEventListener('pk:me', ()=>{
       const host=$('#app');
       if(host && role==='student'){ host.innerHTML = sidebar(role, active) + `<main class="mn" id="mn"></main>`; bindDelegated(); }
