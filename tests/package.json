@@ -9,6 +9,7 @@
     "serve": "python3 -m http.server 4322 --bind 0.0.0.0 --directory .."
   },
   "devDependencies": {
-    "jsdom": "^25.0.1"
+    "jsdom": "^25.0.1",
+    "playwright": "^1.63.0"
   }
 }

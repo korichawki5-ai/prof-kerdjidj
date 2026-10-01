@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light" data-page="check">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>فحص ملاءمة الشاشة — منصة الأستاذة كرجيج</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%231E4FD8'/%3E%3Cpath d='M50 34 27 28v38l23 6 23-6V28Z' fill='none' stroke='%23fff' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root{--ac:#1E4FD8;--ok:#0FA97C;--wn:#E08A00;--er:#D92D2D;--tx:#0A1430;--tx2:#55617E;--line:#E1E7F2;--bg:#F7F9FD}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Tahoma,"Noto Sans Arabic",Arial,sans-serif;background:var(--bg);color:var(--tx);
+    line-height:1.7;padding:18px 16px calc(30px + env(safe-area-inset-bottom,0px))}
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin-block-end:14px;
+    box-shadow:0 2px 10px rgba(10,20,48,.05)}
+  h1{font-size:1.2rem;margin:0 0 4px}
+  h2{font-size:1rem;margin:0 0 8px}
+  .muted{color:var(--tx2);font-size:.85rem;margin:0}
+  .big{font-size:1.6rem;font-weight:800}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-block-end:1px dashed var(--line)}
+  .row:last-child{border-block-end:0}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:700;
+    background:#EDF2FE;color:var(--ac)}
+  .ok{background:#E4F7F0;color:var(--ok)}.er{background:#FDEBEB;color:var(--er)}.wn{background:#FFF5E2;color:var(--wn)}
+  ul{margin:8px 0 0;padding-inline-start:20px}
+  li{margin-block-end:6px;font-size:.86rem;word-break:break-word}
+  code{background:#EEF2F9;padding:1px 6px;border-radius:6px;font-family:Consolas,monospace;font-size:.8rem;direction:ltr;display:inline-block}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:420px){.grid{grid-template-columns:1fr}}
+  .bar{height:6px;border-radius:999px;background:#E2E9F4;overflow:hidden;margin-block-start:6px}
+  .bar i{display:block;height:100%;background:var(--ac);border-radius:999px}
+  button{font:inherit;padding:10px 16px;border-radius:12px;border:1.5px solid var(--line);background:#fff;cursor:pointer}
+  #res .bad{color:var(--er)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔍 فحص ملاءمة الشاشة</h1>
+    <p class="muted">افتح هذه الصفحة من هاتفك (أو من الكمبيوتر): تفحص تلقائياً 18 صفحة وتخبرك إن كان أي عنصر أوسع من الشاشة،
+      وإن كانت الأزرار وحقول الإدخال بالحجم المطلوب، والنتيجة تظهر أسفل الصفحة. <b>هي للفحص فقط</b>.</p>
+  </div>
+
+  <div class="card">
+    <h2>شاشتك الحالية</h2>
+    <div class="grid">
+      <div class="row" style="border:0"><span>العرض</span><b class="la big" id="vW">…</b></div>
+      <div class="row" style="border:0"><span>الارتفاع</span><b class="la big" id="vH">…</b></div>
+    </div>
+    <div class="row"><span>النافذة النشطة</span><span class="pill" id="vBP">…</span></div>
+    <div class="row"><span>اتجاه الشاشة</span><span id="vOr">…</span></div>
+    <div class="row"><span>تمرير أفقي في هذه الصفحة</span><span class="pill ok" id="vScroll">لا يوجد</span></div>
+  </div>
+
+  <div class="card">
+    <h2>فحص الصفحات</h2>
+    <p class="muted">اضغط الزر — قد يستغرق ~15 ثانية.</p>
+    <button id="run" style="margin-block-start:10px">▶ ابدأ الفحص</button>
+    <div class="bar"><i id="prog" style="width:0%"></i></div>
+    <div id="res" style="margin-block-start:12px"></div>
+  </div>
+
+<script>
+(function(){
+"use strict";
+const PAGES = ["index.html","levels.html","lessons.html","exercises.html","timetable.html","about.html","faq.html","contact.html"];
+function bp(w){ if(w<=380) return "≤380px (صغير جداً)"; if(w<=560) return "≤560px (هاتف)";
+  if(w<=760) return "≤760px (هاتف كبير)"; if(w<=1024) return "≤1024px (لوحي)"; if(w<=1240) return "≤1240px (حاسوب صغير)"; return ">1240px (حاسوب)"; }
+const $ = s => document.querySelector(s);
+function info(){
+  const w = window.innerWidth, h = window.innerHeight;
+  $("#vW").textContent = w + "px"; $("#vH").textContent = h + "px";
+  $("#vBP").textContent = bp(w);
+  $("#vOr").textContent = w > h ? "أفقي (landscape)" : "عمودي (portrait)";
+  const over = document.documentElement.scrollWidth > w + 1;
+  const el = $("#vScroll"); el.textContent = over ? "يوجد (" + (document.documentElement.scrollWidth - w) + "px)" : "لا يوجد";
+  el.className = "pill " + (over ? "er" : "ok");
+}
+addEventListener("resize", info); addEventListener("orientationchange", ()=>setTimeout(info,300));
+info();
+
+$("#run").addEventListener("click", async ()=>{
+  const res = $("#res"), prog = $("#prog"); res.innerHTML = ""; prog.style.width = "0%";
+  const targets = PAGES.concat([document.documentElement.dataset.page === "check" ? "responsive-check.html" : ""]).filter(Boolean);
+  const frame = document.createElement("iframe");
+  frame.style.cssText = "position:fixed;left:-10000px;top:0;width:100%;height:900px;border:0";
+  document.body.appendChild(frame);
+  let html = "";
+  for (let i = 0; i < targets.length; i++){
+    const page = targets[i];
+    prog.style.width = Math.round((i/targets.length)*100) + "%";
+    await new Promise(r=>{ frame.onload = r; frame.src = page + "?_check=" + Date.now(); setTimeout(r, 6000); });
+    let report;
+    try{
+      const doc = frame.contentDocument;
+      const w = doc.documentElement.clientWidth || frame.clientWidth;
+      const wide = [];
+      const small = [];
+      doc.querySelectorAll("body *").forEach(el=>{
+        const r = el.getBoundingClientRect();
+        if(r.width > w + 2 && r.height > 0 && getComputedStyle(el).position !== "fixed"){
+          const id = el.tagName.toLowerCase() + (el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).slice(0,2).join(".") : "");
+          if(!wide.includes(id)) wide.push(id);
+        }
+        const cs = getComputedStyle(el);
+        if((el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA") ){
+          const fs = parseFloat(cs.fontSize);
+          if(fs && fs < 16){ const id = el.tagName.toLowerCase() + "#" + (el.id || "—"); if(!small.includes(id)) small.push(id); }
+        }
+      });
+      const overflow = doc.documentElement.scrollWidth > w + 2;
+      report = {wide: wide.slice(0,6), small: small.slice(0,6), overflow};
+    }catch(e){ report = {error:String(e)}; }
+    const label = document.createElement("div");
+    const bad = report.error || report.overflow || (report.wide && report.wide.length);
+    label.className = "card";
+    label.innerHTML = `<div class="row"><b>${page}</b><span class="pill ${bad?"er":"ok"}">${report.error ? "تعذّر الفحص" : (bad ? "يحتاج مراجعة" : "سليم ✓")}</span></div>`
+      + (report.wide && report.wide.length ? `<div class="bad muted" style="font-size:.82rem">عناصر أوسع من الشاشة: ${report.wide.map(x=>`<code>${x}</code>`).join(" ")}</div>` : "")
+      + (report.small && report.small.length ? `<div class="muted" style="font-size:.82rem">حقول بخط &lt; 16px (سبب تكبير iOS): ${report.small.map(x=>`<code>${x}</code>`).join(" ")}</div>` : "");
+    res.appendChild(label);
+  }
+  prog.style.width = "100%";
+  frame.remove();
+  const done = document.createElement("div");
+  done.className = "card";
+  done.innerHTML = `<b>انتهى الفحص ✓</b><p class="muted">إن ظهر «سليم ✓» في كل الصفحات، فالموقع ملائم لشاشتك.
+    إن ظهر «يحتاج مراجعة»، صوّر لي الشاشة وسأصلح العنصر المذكور بالاسم.</p>`;
+  res.appendChild(done);
+});
+})();
+</script>
+</body>
+</html>

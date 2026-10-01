@@ -1,22 +1,57 @@
 rules_version = '2';
 
 /* ════════════════════════════════════════════════════════════════
-   Plateforme Prof. Kerdjidj — règles Firestore
+   Plateforme Prof. Kerdjidj — règles Firestore (v2)
    Principes :
-    · contenu pédagogique public en LECTURE (site vitrine) ;
-    · un élève lit uniquement SES données ;
-    · l'ÉCRITURE est réservée à la professeure (role == "admin") ;
-    · AUCUNE note scolaire : les documents ne portent que de la
-      progression (XP, maîtrise, séries, badges).
+    · contenu pédagogique public en LECTURE (vitrine) ;
+    · chaque élève lit et écrit UNIQUEMENT ses données (clé = uid) ;
+    · l'ÉCRITURE pédagogique est réservée à la professeure (role admin) ;
+    · les séances sont publiques (vis='public') ou privées (vis='vip') ;
+    · messagerie : formulaire public encadré + réponses du professeur ;
+    · aucune note scolaire : uniquement progression (XP, maîtrise…).
    ════════════════════════════════════════════════════════════════ */
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signed()        { return request.auth != null; }
-    function uid()           { return request.auth.uid; }
-    function role()          { return get(/databases/$(database)/documents/users/$(uid())).data.role; }
-    function isAdmin()       { return signed() && role() == 'admin'; }
-    function isSelf(id)      { return signed() && uid() == id; }
+    /* ── Fonctions utilitaires (déclarées avant usage) ────────── */
+    function signed()    { return request.auth != null; }
+    function uid()       { return request.auth.uid; }
+    function me()        { return get(/databases/$(database)/documents/users/$(uid())).data; }
+    function role()      { return signed() ? me().get('role', 'pending') : 'anon'; }
+    function isAdmin()   { return signed() && role() == 'admin'; }
+    function isSelf(id)  { return signed() && uid() == id; }
+    /** fiche élève reliée au compte connecté (écrite par la professeure) */
+    function cardId()    { return signed() ? me().get('linkedStudentId', null) : null; }
+    function ownsCard(id) { return signed() && cardId() == id; }
+    /** champs modifiés lors d'un update */
+    function changed()   { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function isStr(v, max) { return v is string && v.size() <= max; }
+    /** un compte ne peut modifier que son profil — jamais son lien ni ses droits */
+    function profileOnly() {
+      return changed().hasOnly(['name','photoURL','email','level','interests','onboarded','onboardedAt','lastLoginAt','role'])
+             && (!changed().has('role')
+                 || request.resource.data.role == resource.data.role
+                 || (resource.data.role == 'pending' && request.resource.data.role == 'student'))
+             && request.resource.data.uid == resource.data.uid;
+    }
+    /** progression : champs autorisés pour l'élève lui-même */
+    function progressOnly() {
+      return changed().hasOnly(['xp','exDone','quizDone','correctTotal','answeredTotal','minutes',
+                                'lastActivity','best','mastery','streakCurrent','lastDay','badges',
+                                'lessonsDone','doneLessons','studentId','cardId','at']);
+    }
+    /** formulaire public « Contact » : un seul message, champs strictement encadrés */
+    function contactForm() {
+      return request.resource.data.role == 'contact'
+             && request.resource.data.keys().hasOnly(
+                ['from','contact','level','subject','body','role','at','createdAt','read'])
+             && isStr(request.resource.data.from, 80)
+             && isStr(request.resource.data.contact, 120)
+             && isStr(request.resource.data.body, 2000)
+             && request.resource.data.body.size() >= 5
+             && (!('subject' in request.resource.data) || isStr(request.resource.data.subject, 120))
+             && (!('level' in request.resource.data) || isStr(request.resource.data.level, 12));
+    }
 
     /* ── Paramètres du site : lecture publique, écriture admin ── */
     match /settings/{doc} {
@@ -25,41 +60,71 @@ service cloud.firestore {
     }
 
     /* ── Contenu pédagogique : lecture publique ── */
-    match /levels/{doc}      { allow read: if true; allow write: if isAdmin(); }
-    match /axes/{doc}        { allow read: if true; allow write: if isAdmin(); }
-    match /lessons/{doc}     { allow read: if true; allow write: if isAdmin(); }
-    match /exercises/{doc}   { allow read: if true; allow write: if isAdmin(); }
-    match /quizzes/{doc}     { allow read: if true; allow write: if isAdmin(); }
-    match /questions/{doc}   { allow read: if true; allow write: if isAdmin(); }
+    match /levels/{doc}        { allow read: if true; allow write: if isAdmin(); }
+    match /axes/{doc}          { allow read: if true; allow write: if isAdmin(); }
+    match /lessons/{doc}       { allow read: if true; allow write: if isAdmin(); }
+    match /exercises/{doc}     { allow read: if true; allow write: if isAdmin(); }
+    match /quizzes/{doc}       { allow read: if true; allow write: if isAdmin(); }
+    match /questions/{doc}     { allow read: if true; allow write: if isAdmin(); }
     match /announcements/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /groups/{doc}      { allow read: if signed(); allow write: if isAdmin(); }
 
-    /* ── Élèves : l'admin gère tout, l'élève ne lit que sa fiche ── */
+    /* ── Séances / groupes ──────────────────────────────────────
+       vis='public' : visible par tout le monde (site vitrine inclus)
+       vis='vip'    : visible seulement par les élèves listés dans
+                      vipUids, et par la professeure.
+       (Un document ancien sans champ vis est lu comme public.)   */
+    match /groups/{groupId} {
+      allow read: if isAdmin()
+                  || resource.data.get('vis', 'public') == 'public'
+                  || (signed() && uid() in resource.data.get('vipUids', []));
+      allow write: if isAdmin();
+    }
+
+    /* ── Élèves : fiches administratives (professeure) ─────────
+       L'élève ne lit QUE la fiche reliée à son compte. */
     match /students/{studentId} {
-      allow read:   if isAdmin() || isSelf(studentId);
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (isSelf(studentId) &&
-                      !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['xp','level','group','status','linked','mastery','badges','streak']));
+      allow read: if isAdmin() || ownsCard(studentId);
+      allow write: if isAdmin();
+    }
+
+    /* ── Comptes : chacun le sien, la professeure tous ───────── */
+    match /users/{userId} {
+      allow read:   if isAdmin() || isSelf(userId);
+      allow create: if signed() && isSelf(userId)
+                    && (!('role' in request.resource.data) || request.resource.data.role == 'pending');
+      allow update: if isAdmin() || (isSelf(userId) && profileOnly());
       allow delete: if isAdmin();
     }
 
-    /* ── Progression (XP, maîtrise, séries, badges) ── */
+    /* ── Progression (XP, série, maîtrise) : clé = uid ── */
     match /progress/{userId} {
       allow read:  if isAdmin() || isSelf(userId);
-      allow write: if isAdmin() || isSelf(userId);
+      allow write: if isAdmin() || (isSelf(userId) && progressOnly());
     }
 
-    /* ── Résultats d'exercices : créés par l'élève authentifié ── */
+    /* ── Résultats d'exercices : créés par l'élève connecté ── */
     match /submissions/{subId} {
       allow read:   if isAdmin() || (signed() && resource.data.studentId == uid());
-      allow create: if signed() && request.resource.data.studentId == uid();
+      allow create: if signed() && request.resource.data.studentId == uid()
+                    && request.resource.data.keys().hasOnly(
+                         ['exerciseId','studentId','cardId','level','ax','correct','total','pct','xp',
+                          'durationSec','attempts','answers','type','at','createdAt']);
       allow update, delete: if isAdmin();
     }
+    /* ancienne collection conservée : mêmes règles de base */
     match /exerciseSubs/{subId} {
       allow read:   if isAdmin() || (signed() && resource.data.studentId == uid());
       allow create: if signed() && request.resource.data.studentId == uid();
       allow update, delete: if isAdmin();
+    }
+
+    /* ── Leçons terminées : une ligne par (élève, leçon) ── */
+    match /lessonsDone/{docId} {
+      allow read:   if isAdmin() || (signed() && resource.data.studentId == uid());
+      allow create, update: if signed() && request.resource.data.studentId == uid()
+                            && request.resource.data.keys().hasOnly(
+                               ['studentId','cardId','lessonId','at','createdAt']);
+      allow delete: if isAdmin() || (signed() && resource.data.studentId == uid());
     }
 
     /* ── Présence aux séances : admin uniquement ── */
@@ -68,20 +133,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    /* ── Messagerie : les deux participants + l'admin ── */
+    /* ── Messagerie ─────────────────────────────────────────────
+       · le formulaire public « Contact » peut écrire UN message
+         strictement encadré (aucune lecture, aucun autre champ) ;
+       · un élève connecté écrit en son nom (from == uid) ;
+       · la professeure répond (to = uid de l'élève) et gère tout. */
     match /messages/{msgId} {
-      allow read:   if isAdmin() || (signed() && (resource.data.from == uid() || resource.data.to == uid()));
-      allow create: if signed();
-      allow update: if isAdmin() || (signed() && resource.data.from == uid());
-      allow delete: if isAdmin();
-    }
-
-    /* ── Comptes : chacun lit son propre compte, l'admin lit tout ── */
-    match /users/{userId} {
-      allow read:  if isAdmin() || isSelf(userId);
-      allow create: if signed() && isSelf(userId);
-      allow update: if isAdmin() || (isSelf(userId) &&
-                      request.resource.data.role == resource.data.role);
+      allow read:   if isAdmin()
+                    || (signed() && (resource.data.from == uid() || resource.data.to == uid()));
+      allow create: if isAdmin() || contactForm() || (signed() && request.resource.data.from == uid());
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 

@@ -575,3 +575,31 @@ html[data-theme="dark"] .stk__n{color:#FFC94D}
 .gate__b:hover{transform:translateY(-2px);border-color:var(--ac);box-shadow:var(--s2)}
 .gate__b b{font-size:1.02rem}
 @media (max-width:560px){.gate__lv{grid-template-columns:1fr}}
+
+/* ══════════════════════════════════════════════════════════════
+   PORTE D'ENTRÉE v2 (inscription / connexion / première fois)
+   + barres collantes + lignes de liste (comptes non reliés)
+   ══════════════════════════════════════════════════════════════ */
+.gate__c--wide{max-width:600px}
+.gate__ic{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:20px;
+  background:var(--ac-tint);color:var(--ac)}
+.gate__tabs{display:grid;grid-template-columns:1fr 1fr;margin:20px 0 18px}
+.gate__tabs button{justify-content:center}
+.gate__form{display:flex;flex-direction:column;gap:14px;text-align:start}
+.gate__form .fld>label{text-align:start}
+.gate__lnk{background:none;border:0;color:var(--ac);font:inherit;font-size:.86rem;font-weight:700;
+  cursor:pointer;padding:6px 2px;text-decoration:underline;text-underline-offset:3px}
+.gate__lnk:hover{color:var(--ac-d)}
+.gate__err{background:var(--er-t);color:var(--er-d);border:1px solid color-mix(in srgb,var(--er) 30%,transparent);
+  border-radius:12px;padding:10px 14px;font-size:.86rem;font-weight:600;text-align:start;margin-top:14px}
+.gate__or{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--tx3);font-size:.8rem}
+.gate__or i{flex:1;height:1px;background:var(--line)}
+.gate__chk{display:flex;flex-wrap:wrap;gap:8px 18px}
+.gate__b.on{border-color:var(--ac);background:var(--ac-tint);box-shadow:0 0 0 3px var(--ac-soft)}
+.lrow{display:block;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--surface2)}
+.app--gate{grid-template-columns:1fr}
+.app--gate .mn{padding:0}
+.stick{position:sticky;top:90px}
+.stickb{position:sticky;bottom:0;background:var(--bg);z-index:5;padding:14px 0;
+  border-block-start:1px solid var(--line)}
+.tb__hint{display:none;font-size:.78rem;color:var(--tx3);gap:6px;align-items:center;margin-block-end:8px}

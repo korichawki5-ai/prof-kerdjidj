@@ -82,7 +82,7 @@ function render(mn){
   </div>
 
   <!-- ── KPI ── -->
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${kpis.map(k=>`
       <div class="kpi${k.cls===''&&k.ic==='bolt'?' kpi--xp':''} rv">
         <div class="kpi__t">
@@ -95,7 +95,7 @@ function render(mn){
   </div>
 
   <!-- ── XP + SÉRIE ── -->
-  <div class="g g2 mb5" style="grid-template-columns:1.55fr 1fr">
+  <div class="g g2 mb5 g--xp">
     <div class="xpbar rv">
       <div class="xpbar__h">
         <div class="xpbar__lv">
@@ -133,8 +133,18 @@ function render(mn){
     </div>
   </div>
 
+  ${(()=>{ const msgs=(window.PKdata.myMessages||[]).slice(0,3);
+    if(!msgs.length) return '';
+    return `<div class="cd rv mb5" style="border-inline-start:3px solid var(--ac)">
+      <div class="cd__h"><div><div class="cd__t">${L_('رسائل من الأستاذة','Messages de la professeure')}</div>
+        <div class="cd__s">${L_('ردود وصلتك مباشرة','Réponses qui vous sont adressées')}</div></div>
+        <span class="bd">${svg('msg','width="12" height="12"')}${msgs.length}</span></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${msgs.map(m=>`<div class="bub bub--in"><p>${m.body||''}</p><time class="la">${m.d||''}</time></div>`).join('')}
+      </div></div>`; })()}
+
   <!-- ── CORPS ── -->
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
 
       <!-- exercices suggérés -->

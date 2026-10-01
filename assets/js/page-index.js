@@ -83,7 +83,7 @@ function renderLevelPanel(id){
   const l = D.byId(D.levels,id);
   const ls = D.lessonsOf(id), ex = D.exercisesOf(id);
   $('#lvPanel').innerHTML = `
-    <div class="lpn g g-main" style="grid-template-columns:1fr 300px;gap:32px">
+    <div class="lpn g g-main" style="gap:32px">
       <div>
         <div class="flex items-c gap3 mb4 wrap-f">
           <span class="lv__b ${l.cls}" style="width:52px;height:52px;border-radius:16px;font-size:1rem;background:var(--lvt);color:var(--lvc)">${l.id}</span>
@@ -337,7 +337,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   boot('index.html');
   renderHeroQuiz();
   renderAll();
-  window.PKdb.init();
+  /* re-rendu APRÈS hydratation : le contenu publié apparaît aussi sur l'accueil */
+  window.PKdb.init().then(()=>{ renderAll(); }, ()=>{});
   document.addEventListener('pk:lang', renderAll);
   // palette de commandes enrichie
   window.PK.setPalette([

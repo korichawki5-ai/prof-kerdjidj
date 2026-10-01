@@ -59,6 +59,11 @@ html[lang="ar"] .fr,html[dir="rtl"] .fr{display:none!important}
 .g6{grid-template-columns:repeat(6,1fr)}
 .g-side{grid-template-columns:var(--sbw) 1fr}
 .g-main{grid-template-columns:1fr 340px}
+/* variantes de grille : remplaçent les styles en ligne pour rester
+   sensibles aux media queries (mobile / tablette) */
+.g--side-l{grid-template-columns:340px 1fr}
+.g--auto{grid-template-columns:1fr auto}
+.g--xp{grid-template-columns:1.55fr 1fr}
 /* ── Sections ── */
 .sec{padding-block:clamp(64px,9vw,124px);position:relative}
 .sec--alt{background:var(--bg2)}

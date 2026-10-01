@@ -95,3 +95,94 @@
   .hd__t #pkSearch{display:none}
   .nv.open{padding-block-start:74px}
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIFS MOBILES (v2) — points de rupture unifiés
+   1240 · 1024 · 900 · 760 · 560 · 380 + mode paysage
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width:1240px){
+  .g--side-l,.g--xp,.g--auto{grid-template-columns:1fr}
+}
+@media (max-width:1024px){
+  .stick{position:static;top:auto}
+}
+@media (max-width:900px){
+  .tb__hint{display:flex}
+}
+@media (max-width:760px){
+  /* cibles tactiles confortables (≥44 px) */
+  .iact{width:44px;height:44px}
+  .btn--i{width:44px;height:44px}
+  .btn--is{width:40px;height:40px}
+  .btn--sm{padding:11px 16px}
+  .tabs button{padding:12px 15px}
+  .msg{padding:14px 14px}
+  .pgn button{min-width:40px;height:40px}
+  .stickb{position:static}
+  /* barre de démonstration masquée sur petit écran (elle chevaucherait WhatsApp) */
+  body>.lgsw[style*="position:fixed"]{display:none}
+  /* tableaux : défilement fluide + indice de balayage */
+  .tbw{overflow-x:auto;-webkit-overflow-scrolling:touch;
+    background-image:linear-gradient(to left,rgba(10,20,48,.06),transparent 24px);
+    background-repeat:no-repeat;background-position:right center;background-size:24px 100%}
+  /* la carte de connexion respire moins */
+  .gate__c{padding:30px 20px}
+  .gate__lv{grid-template-columns:1fr 1fr}
+}
+@media (max-width:560px){
+  .gate__tabs{grid-template-columns:1fr}
+  .gate__lv{grid-template-columns:1fr}
+  .kpis--4{grid-template-columns:1fr}
+  .mn__a{flex-wrap:wrap}
+  .sb__l{padding:11px 15px;min-height:44px}
+  .lrow{padding:12px}
+}
+@media (max-width:380px){
+  body{font-size:15px}
+  .btn{padding:12px 18px;font-size:.92rem}
+  .btn--lg{padding:14px 20px;font-size:.96rem}
+  .cd{padding:16px}
+  .kpi__n{font-size:1.6rem}
+  .av{width:34px;height:34px}
+}
+/* ── Téléphones en mode paysage (hauteur réduite) ── */
+@media (max-height:520px) and (orientation:landscape){
+  .gate{min-height:auto;padding:16px}
+  .nv.open{padding-block-start:64px;max-height:none}
+  .mb{display:none}
+}
+/* ── Encoches / barres système (iPhone & Android) ── */
+@media (max-width:760px){
+  .waf{inset-block-end:calc(20px + env(safe-area-inset-bottom,0px));
+       inset-inline-end:calc(18px + env(safe-area-inset-right,0px))}
+  .toasts{inset-block-end:calc(20px + env(safe-area-inset-bottom,0px));
+          inset-inline-start:calc(16px + env(safe-area-inset-left,0px));
+          inset-inline-end:calc(16px + env(safe-area-inset-right,0px))}
+  .toast{min-width:0;max-width:none}
+  .sb{padding-inline:calc(12px + env(safe-area-inset-left,0px)) calc(12px + env(safe-area-inset-right,0px))}
+  .nv.open{padding-inline:calc(20px + env(safe-area-inset-left,0px)) calc(20px + env(safe-area-inset-right,0px))}
+  .mn{padding-inline:calc(16px + env(safe-area-inset-left,0px)) calc(16px + env(safe-area-inset-right,0px))}
+}
+/* ── Une seule colonne garantie sous 760 px (sécurité) ── */
+@media (max-width:760px){
+  .g,.g2,.g3,.g4,.g5,.g6,.g-main,.g--side-l,.g--xp,.g--auto,.sts,.lvs,.axs{grid-template-columns:1fr!important}
+  .kpis{grid-template-columns:repeat(2,1fr)!important}
+  .tteg{min-width:760px}
+  /* iOS : un champ < 16 px déclenche un zoom automatique → on force 16 px */
+  .inp,.sel,.txa,.srch .inp,input,select,textarea{font-size:16px}
+  .inp--sm,.sel--sm{font-size:16px}
+}
+@media (max-width:380px){
+  .kpis{grid-template-columns:1fr!important}
+}
+
+/* ── Unités dynamiques : le contenu s'adapte aux barres du navigateur mobile ── */
+@supports (height:100dvh){
+  .app{min-height:100dvh}
+  .sb{height:100dvh}
+  .mdl__b{max-height:90dvh}
+  .mdl{padding:12px}
+  .nv.open{max-height:88dvh}
+  .gate{min-height:min(62dvh,560px)}
+}

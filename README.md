@@ -11,6 +11,13 @@ Plateforme de révision et d'entraînement en français pour les collégiens (1A
 > Les exercices sont uniquement de l'entraînement. À la place : un **système de progression motivant** —
 > XP, rangs, séries quotidiennes, taux de maîtrise par axe et badges.
 >
+> ---
+> ### 🆕 الإصدار 2 — إصلاحات جوهرية (2026)
+> · المحتوى المنشور يظهر لكل الزوار · دخول التلميذ: **إنشاء حساب بالبريد أو Google** + اختيار السنة والاهتمام
+> · **XP والتقدّم يُحفظان فعلاً** وتظهر للأستاذة · لوحة الإدارة **تحفظ** الإعلانات والدروس والتلاميذ والأفواج
+> · **حصص عامة وحصص VIP** (لا تظهر إلا لأصحابها) · قفل كامل لقسم الأستاذة · تحسين شامل للهاتف
+> · التفاصيل الكاملة: [`FIXES.md`](FIXES.md) · طريقة النشر: [`README-NASHR.md`](README-NASHR.md)
+>
 > **لا دفع ولا اشتراكات ولا خطط أسعار — المنصّة مجانية بالكامل.**
 > **Aucun paiement, aucun abonnement, aucune offre tarifaire — la plateforme est entièrement gratuite.**
 
@@ -137,7 +144,7 @@ python3 -m http.server 4322 --bind 0.0.0.0 --directory ..   # في نافذة أ
 node run-all.mjs
 ```
 
-**237 فحصاً** تغطّي: 18 صفحة (تحميل بلا أخطاء + تبديل AR ⇄ FR)، محرّك التمارين من السؤال الأول حتى مراجعة
+**212 فحصاً** تغطّي (منها ما يطابق الكود مع قواعد Firestore): 18 صفحة (تحميل بلا أخطاء + تبديل AR ⇄ FR)، محرّك التمارين من السؤال الأول حتى مراجعة
 الإجابات، وحدات لوحة الإدارة الإحدى عشرة، تفاعلات بانوراما الاختبار، ومسار **حفظ معلومات التواصل → ظهورها
 في صفحة «تواصل» في جلسة جديدة**.
 

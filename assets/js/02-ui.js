@@ -470,6 +470,11 @@ function boot(active){
       .concat([{label:window.PKi18n.t('navLogin'), href:'student/index.html', icon:'users', group:g}]);
   }
   document.dispatchEvent(new CustomEvent('pk:ready'));
+  /* erreurs Firestore / Auth : une seul message clair, jamais de silence */
+  document.addEventListener('pk:error', e=>{
+    const d = (e && e.detail) || {};
+    if(!d.toasted && d.message) toast(d.message, 'er', 5200);
+  });
 }
 
 /* ══════════ API PUBLIQUE ══════════ */

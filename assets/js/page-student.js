@@ -54,7 +54,7 @@ function lessons(){
     sub:L_(`${myLessons().length} درساً · أكملت ${done} · كل درس مكتمل = +${X.CFG.xpPerLesson} XP`,
            `${myLessons().length} cours · ${done} terminés · chaque cours terminé = +${X.CFG.xpPerLesson} XP`),
     actions:`<a href="exercises.html" class="btn btn--p btn--sm">${svg('quiz','width="16" height="16"')}${t('sbEx')}</a>`}) + `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${[[t('k4'),done,'book','ico--pu'],[t('lsAll'),myLessons().length,'layers',''],
        [t('xpTotal'),sum.xp.toLocaleString('fr-FR'),'bolt','ico--wn'],[t('mastery'),sum.globalMastery+'%','target','ico--ok']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
@@ -138,7 +138,7 @@ function lessonPage(){
     sub:`${l.level} · ${axName(l.ax)} · ${l.min} ${t('lsMin')} · +${l.xp||X.CFG.xpPerLesson} XP`,
     actions:`${prev?`<a class="btn btn--g btn--i" href="lesson.html?id=${prev.id}" title="${L_('السابق','Précédent')}">${svg('arrow')}</a>`:''}
       ${next?`<a class="btn btn--g btn--i" href="lesson.html?id=${next.id}" title="${L_('التالي','Suivant')}">${svg('chev')}</a>`:''}`}) + `
-  <div class="g g-main" style="grid-template-columns:1fr 320px;align-items:start">
+  <div class="g g-main" style="align-items:start">
     <div style="min-width:0;display:flex;flex-direction:column;gap:20px">
       <div class="cd rv">
         <div class="flex gap2 wrap-f mb4">
@@ -207,7 +207,8 @@ function bindLesson(host){
     l.done=!l.done;
     if(l.done){
       const xp=X.CFG.xpPerLesson;
-      window.PKdb.markLessonDone(me().id, l.id, xp);
+      /* ordre attendu : (lessonId, studentId, xp) — l'uid est utilisé côté serveur */
+      window.PKdb.markLessonDone(l.id, me().id, xp);
       confetti(60); toast(`${t('lsMark')} · +${xp} XP`,'ok',3200);
     } else toast(L_('أُلغي وضع الإكمال','Cours marqué comme non terminé'),'wn',2200);
     b.className='btn btn--'+(l.done?'g':'p');
@@ -229,7 +230,7 @@ function exercises(){
     sub:L_(`${myExercises().length} تمريناً · أنجزت ${sum.exDone} · دقّتك ${sum.accuracy}%`,
            `${myExercises().length} exercices · ${sum.exDone} résolus · précision ${sum.accuracy}%`),
     actions:`<a href="lessons.html" class="btn btn--g btn--sm">${svg('book','width="16" height="16"')}${t('sbLessons')}</a>`}) + `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${[[t('k5'),sum.exDone,'quiz','ico--cy'],[t('accuracy'),sum.accuracy+'%','checkc','ico--ok'],
        [t('bestStreak'),sum.bestStreak,'flame','ico--wn'],[t('xpTotal'),sum.xp.toLocaleString('fr-FR'),'bolt','']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
@@ -302,7 +303,7 @@ function progressPage(){
     sub:L_('XP · رتبة · سلسلة · إتقان لكل محور · أوسمة — بدون أي نقطة مدرسية',
            'XP · rang · série · maîtrise par axe · badges — aucune note scolaire'),
     actions:`<a href="exercises.html" class="btn btn--p btn--sm">${svg('play','width="16" height="16"')}${t('exStart')}</a>`}) + `
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main" style="align-items:start">
     <div style="min-width:0;display:flex;flex-direction:column;gap:20px">
       <div class="cd rv" style="background:linear-gradient(140deg,var(--ac-dd),var(--ac) 60%,var(--ac-2));border:0;color:#fff">
         <div class="flex items-c gap4 wrap-f">
@@ -319,7 +320,7 @@ function progressPage(){
         </div>
       </div>
 
-      <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpis cas">
         ${[[t('xpTotal'),sum.xp.toLocaleString('fr-FR'),'bolt','ico--wn'],[t('streak'),sum.streak,'flame','ico--er'],
            [t('accuracy'),sum.accuracy+'%','checkc','ico--ok'],[t('mastery'),sum.globalMastery+'%','target','ico--pu']]
           .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
@@ -353,6 +354,7 @@ function progressPage(){
       <div class="cd rv">
         <div class="cd__h cd__h--b"><div><div class="cd__t">${L_('سجلّ التمارين','Historique des exercices')}</div>
           <div class="cd__s">${L_('آخر محاولاتهم مع XP المكتسبة','Vos dernières tentatives avec les XP gagnés')}</div></div></div>
+        <div class="tb__hint">${svg('arrow','width="14" height="14"')}${t('scrollHint')}</div>
         <div class="tbw"><table class="tb">
           <thead><tr><th>${L_('التاريخ','Date')}</th><th>${t('sbEx')}</th><th>${t('stuLevel')}</th>
             <th>${L_('النتيجة','Résultat')}</th><th>XP</th><th></th></tr></thead>
@@ -381,7 +383,7 @@ function progressPage(){
       <div class="cd rv" style="--d:60ms">
         <div class="cd__h"><div class="cd__t" style="font-size:.98rem">${t('stBadges')}</div>
           <span class="bd la">${sum.badges.length}/${X.BADGES.length}</span></div>
-        <div class="bdgrid" style="grid-template-columns:repeat(3,1fr);gap:10px">
+        <div class="bdgrid" style="gap:10px">
           ${X.BADGES.map(b=>{const has=sum.badges.includes(b.id);
             return `<div class="bdgc ${has?'':'off'}" title="${t(b.i18n)}">
               <span class="bdgc__i">${svg(b.icon)}</span><b>${t(b.i18n)}</b></div>`;}).join('')}
@@ -487,12 +489,17 @@ function bindTimetable(host){
 
 /* ══════════════════ 6. ANNONCES ══════════════════ */
 function announcements(){
-  const list=[...D.announcements].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
+  /* audience : 'all' (défaut) · un niveau (1AM…) · un groupe (id) */
+  const m=D.me||{};
+  const mine=a=>{ const aud=a.audience; if(!aud||aud==='all') return true;
+    if(Array.isArray(a.audiences)) return a.audiences.includes(m.level)||a.audiences.includes(m.group);
+    return aud===m.level || aud===m.group || (m.role==='admin'); };
+  const list=[...D.announcements].filter(mine).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
   if(!list.length) return emptyCard('noAnnounces','bell');
   return head({crumb:crumb('index.html',t('sbDash'))+'<span>'+t('sbAnn')+'</span>',
     title:t('sbAnn'),
     sub:L_('كل ما تنشره الأستاذة يصلك هنا فوراً','Tout ce que publie la professeure arrive ici immédiatement')}) + `
-  <div class="g g-main" style="grid-template-columns:1fr 320px;align-items:start">
+  <div class="g g-main" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
       ${list.map(a=>{
         const imp=a.importance||'info';
@@ -544,7 +551,7 @@ function profile(){
   return head({crumb:crumb('index.html',t('sbDash'))+'<span>'+t('sbProfile')+'</span>',
     title:t('sbProfile'),
     sub:L_('معلوماتك، رتبتك، وتفضيلاتك','Vos informations, votre rang et vos préférences')}) + `
-  <div class="g g-main" style="grid-template-columns:340px 1fr;align-items:start">
+  <div class="g g-main g--side-l" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
       <div class="cd rv" style="text-align:center">
         <span class="av av--lg" style="background:${m.color};width:92px;height:92px;border-radius:28px;font-size:1.7rem;margin-inline:auto">${ini(m.fr)}</span>
@@ -562,7 +569,7 @@ function profile(){
           <div class="prg mt4"><i data-w="${sum.rankProgress.pct}%" style="width:${sum.rankProgress.pct}%"></i></div>
         </div>
       </div>
-      <div class="kpis cas" style="grid-template-columns:repeat(2,1fr);gap:12px">
+      <div class="kpis cas" style="gap:12px">
         ${[[t('streak'),sum.streak,'flame'],[t('k4'),sum.lessonsDone,'book'],
            [t('k5'),sum.exDone,'quiz'],[t('badges'),sum.badges.length,'trophy']]
           .map(([l,v,ic])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm">${svg(ic)}</span></div>

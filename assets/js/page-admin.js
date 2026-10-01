@@ -17,7 +17,18 @@ const AXFR={grammaire:'Grammaire',conjugaison:'Conjugaison',orthographe:'Orthogr
   comprehension:'Compréhension',expression:'Expression écrite',oral:'Expression orale',
   methodology:'Méthodologie BEM',sujets:'Sujets corrigés'};
 const AV=c=>c;
-const ini=n=>n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+/* ── helpers défensifs : aucune donnée manquante ne peut casser l'affichage ── */
+const num = v => (typeof v === 'number' && !isNaN(v)) ? v : 0;
+const lvCls = lv => { const l = D.byId(D.levels, lv); return l ? l.cls : 'lv-4am'; };
+const lvName = lv => { const l = D.byId(D.levels, lv); return l ? L_(l.ar, l.fr) : (lv || '—'); };
+const accPct = s => { const a = num(s && s.answered); return a ? Math.round(num(s && s.correct)/a*100) : 0; };
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ini = n => { const w = String(n == null ? '' : n).trim().split(/\s+/).filter(Boolean);
+  return (w.map(x => x[0]).join('').slice(0,2).toUpperCase()) || '—'; };
+/** liste des comptes qui ne sont encore reliés à aucune fiche élève */
+const unlinkedUsers = () => (window.PKdata.users||[]).filter(u => u && !u.linkedStudentId && u.role !== 'admin');
+/** retrouve la fiche liée à un compte */
+const cardOfUser = u => u && u.linkedStudentId ? (window.PKdata.students||[]).find(s=>s.id===u.linkedStudentId) : null;
 
 /* ══════════════════ VUE D'ENSEMBLE ══════════════════ */
 function overview(){
@@ -43,17 +54,17 @@ function overview(){
   ];
   const bars=[['0–500',bucket(0,500),'er'],['500–1k',bucket(500,1000),'wn'],['1k–3k',bucket(1000,3000),''],['3k–5k',bucket(3000,5000),''],['5k+',bucket(5000,1e9),'ok']];
   const maxV=Math.max(...bars.map(b=>b[1]),1);
-  const feed=(D.messages||[]).slice(-6).reverse().map(m=>['chat','ico--pu', L_(m.body||'', m.body||''), m.when||'']);
+  const feed=(D.messages||[]).slice(-6).reverse().map(m=>['chat','ico--pu', L_(m.body||'', m.body||''), m.d||m.when||'']);
   if(!feed.length) feed.push(['info','ico--gy', L_('لا نشاط بعد — كل رسالة جديدة وكل نشر سيظهران هنا.','Aucune activité — chaque message et publication apparaîtront ici.'), '']);
 
   return `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${kpis.map(k=>`<div class="kpi rv">
       <div class="kpi__t"><span class="ico ico--sm ${k.c}">${svg(k.ic)}</span></div>
       <div class="kpi__n la">${k.n}</div><div class="kpi__l">${k.l}</div></div>`).join('')}
   </div>
 
-  <div class="g g-main mt5" style="grid-template-columns:1fr 360px;align-items:start">
+  <div class="g g-main mt5" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
       <div class="chart rv">
         <div class="chart__h">
@@ -99,8 +110,8 @@ function overview(){
             <td><span class="bd ${i===0?'bd--wn':'bd--gy'} la">${i+1}</span></td>
             <td><div class="who"><span class="av" style="background:${s.color||'#1E4FD8'}">${ini(s.fr)}</span>
               <div><b>${L_(s.ar,s.fr)}</b><small>${s.group}</small></div></div></td>
-            <td><span class="bd bd--lv ${D.byId(D.levels,s.level).cls}">${s.level}</span></td>
-            <td><b class="la acc">${s.xp.toLocaleString('fr-FR')}</b></td>
+            <td><span class="bd bd--lv ${lvCls(s.level)}">${s.level}</span></td>
+            <td><b class="la acc">${num(s.xp).toLocaleString('fr-FR')}</b></td>
             <td><span class="la">${svg('flame','width="13" height="13" fill="var(--wn)" stroke="none" style="display:inline;vertical-align:-2px"')} ${s.streak}</span></td>
             <td><div class="prg prg--sm" style="width:70px"><i data-w="${X.globalMastery(s.mastery)}%" style="width:${X.globalMastery(s.mastery)}%"></i></div></td>
             <td><span class="bd">${svg(r.icon,'width="12" height="12"')}${L_(r.ar,r.fr)}</span></td>
@@ -154,9 +165,9 @@ function timetable(){
     D.days.forEach(d=>{
       const g=D.slotAt(d,slot);
       grid += g
-        ? `<div class="sl" data-day="${d}" data-slot="${slot}"><div class="blk ${g.cls}" draggable="true">
+        ? `<div class="sl" data-day="${d}" data-slot="${slot}"><div class="blk ${g.cls}" draggable="true" data-sess="${g.id}" title="${t('edit')}">
              <span class="blk__g">${svg('drag','width="13" height="13"')}</span>
-             <b>${g.name}</b><small>${L_(g.schoolAr,g.schoolFr)}</small><i>${g.teacher} · ${g.start}–${g.end}</i>
+             <b>${g.name}${g.vis==='vip'?' ★':''}</b><small>${L_(g.schoolAr,g.schoolFr)}</small><i>${g.teacher} · ${g.start}–${g.end}</i>
            </div></div>`
         : `<div class="sl" data-day="${d}" data-slot="${slot}"></div>`;
     });
@@ -193,20 +204,20 @@ function students(){
     const g=D.groupOf(s.group)||{}; const r=X.rankOf(s.xp); const gm=X.globalMastery(s.mastery);
     return `<tr>
       <td><div class="who"><span class="av" style="background:${s.color}">${ini(s.fr)}</span>
-        <div><b>${L_(s.ar,s.fr)}</b><small class="la">${s.fr}</small></div></div></td>
-      <td><span class="bd bd--lv ${D.byId(D.levels,s.level).cls}">${s.level}</span></td>
+        <div><b>${L_(s.ar,s.fr)}</b><small class="la">${s.fr||''}${(s.interests&&s.interests.length)?' · '+s.interests.map(k=>t('int'+k.charAt(0).toUpperCase()+k.slice(1))).join(' · '):''}</small></div></div></td>
+      <td><span class="bd bd--lv ${lvCls(s.level)}">${s.level}</span></td>
       <td class="la">${g.name||s.group}</td>
       <td style="font-size:.83rem">${(g.schoolAr||g.schoolFr)?L_(g.schoolAr,g.schoolFr):'—'}</td>
       <td class="la" dir="ltr" style="font-size:.83rem">${s.parent||'—'}</td>
-      <td><b class="la acc">${s.xp.toLocaleString('fr-FR')}</b></td>
+      <td><b class="la acc">${num(s.xp).toLocaleString('fr-FR')}</b></td>
       <td><span class="la">${svg('flame','width="13" height="13" fill="var(--wn)" stroke="none" style="display:inline;vertical-align:-2px"')} ${s.streak}</span></td>
       <td><div class="flex items-c gap2"><div class="prg prg--sm" style="width:56px"><i data-w="${gm}%" style="width:${gm}%"></i></div><span class="la faint" style="font-size:.78rem">${gm}%</span></div></td>
       <td>${s.linked?`<span class="bd bd--ok">${svg('check','width="12" height="12"')}${t('stuLinked')}</span>`
                      :`<span class="bd bd--wn">${t('stuNotLinked')}</span>`}</td>
       <td><span class="bd ${s.status==='active'?'bd--ok':'bd--gy'}">${s.status==='active'?t('stuActive'):t('stuInactive')}</span></td>
       <td><div class="acts"><button class="iact" data-view-student="${s.id}" title="${t('stuCard')}">${svg('eye')}</button>
-        <button class="iact" title="${t('edit')}">${svg('edit')}</button>
-        <button class="iact iact--er" title="${t('del')}">${svg('trash')}</button></div></td>
+        <button class="iact" data-edit-student="${s.id}" title="${t('edit')}">${svg('edit')}</button>
+        <button class="iact iact--er" data-del-student="${s.id}" title="${t('del')}">${svg('trash')}</button></div></td>
     </tr>`;}).join('');
 
   return `
@@ -228,6 +239,7 @@ function students(){
       <button class="chip" data-f="unlinked">${svg('link','width="13" height="13"')}${t('stuNotLinked')} <span class="n la">${D.students.filter(s=>!s.linked).length}</span></button>
       <button class="chip" data-f="streak">${svg('flame','width="13" height="13"')}${t('streak')} ≥ 5 <span class="n la">${D.students.filter(s=>s.streak>=5).length}</span></button>
     </div>
+    <div class="tb__hint">${svg('arrow','width="14" height="14"')}${t('scrollHint')}</div>
     <div class="tbw"><table class="tb" id="stuTable" style="min-width:1180px">
       <thead><tr>
         <th data-i18n="stuName">${t('stuName')}</th><th data-i18n="stuLevel">${t('stuLevel')}</th>
@@ -247,19 +259,25 @@ function students(){
       <div class="cd__t" data-i18n="stuImp">${t('stuImp')}</div>
       <div class="cd__s mb4" data-i18n="stuImpS">${t('stuImpS')}</div>
       <div class="upl" id="dropZone">${svg('up')}<b data-i18n="stuImpD">${t('stuImpD')}</b>
-        <small>CSV · XLSX · ${L_('حتى 500 تلميذ','jusqu’à 500 élèves')}</small></div>
-      <button class="btn btn--g btn--sm btn--blk mt4">${svg('file','width="16" height="16"')}${t('stuImpTpl')}</button>
+        <small>CSV · ${L_('حتى 500 تلميذ','jusqu’à 500 élèves')}</small>
+        <input type="file" id="stuCsv" accept=".csv,text/csv" class="hide"></div>
+      <button class="btn btn--g btn--sm btn--blk mt4" data-tpl-csv>${svg('file','width="16" height="16"')}${t('stuImpTpl')}</button>
     </div>
-    <div class="cd rv" style="--d:80ms">
-      <div class="cd__t" data-i18n="stuLink">${t('stuLink')}</div>
-      <div class="cd__s mb4" data-i18n="stuLinkS">${t('stuLinkS')}</div>
-      <div class="g g2" style="gap:14px">
-        <div class="fld"><label>${L_('اسم التلميذ','Nom de l’élève')}</label>
-          <select class="sel sel--sm">${D.students.filter(s=>!s.linked).map(s=>`<option>${L_(s.ar,s.fr)} — ${s.level}</option>`).join('')||`<option>${t('empty')}</option>`}</select></div>
-        <div class="fld"><label data-i18n="stuLinkE">${t('stuLinkE')}</label>
-          <input class="inp inp--sm" dir="ltr" placeholder="eleve@gmail.com"></div>
-      </div>
-      <button class="btn btn--p btn--blk mt4" data-link>${svg('link','width="17" height="17"')}${t('stuLinkGo')}</button>
+    <div class="cd rv" style="--d:80ms" id="linkCard">
+      <div class="cd__t">${t('unlinkedAccounts')}</div>
+      <div class="cd__s mb4">${t('unlinkedHint')}</div>
+      ${unlinkedUsers().length ? `<div style="display:flex;flex-direction:column;gap:14px">${unlinkedUsers().map(u=>`
+        <div class="lrow">
+          <div class="who" style="flex:1;min-width:0"><span class="av" style="background:var(--ac)">${ini(u.name)}</span>
+            <div style="min-width:0"><b>${esc(u.name||t('accountList'))}</b><small class="la" dir="ltr">${esc(u.email||'')}</small></div></div>
+          <div class="muted" style="font-size:.78rem">${u.level?lvName(u.level):''}${(u.interests&&u.interests.length)?' · '+u.interests.map(k=>t('int'+k.charAt(0).toUpperCase()+k.slice(1))).join(' · '):''}</div>
+          <div class="flex gap2 wrap-f" style="margin-block-start:8px">
+            <select class="sel sel--sm" data-card-for="${u.id}" style="flex:1"><option value="">${t('chooseCard')}</option>
+              ${(D.students||[]).filter(s=>!s.linked).map(s=>`<option value="${s.id}">${esc(L_(s.ar,s.fr))} — ${s.level||''}</option>`).join('')}</select>
+            <button class="btn btn--p btn--sm" data-link-uid="${u.id}">${svg('link','width="15" height="15"')}${t('link')}</button>
+          </div>
+        </div>`).join('')}</div>`
+      : `<p class="muted">${t('noUnlinked')}</p>`}
     </div>
   </div>`;
 }
@@ -274,14 +292,16 @@ function groups(){
   </div>
   <div class="g g3 cas">
     ${D.groups.map(g=>{
-      const free=g.capacity-g.enrolled, pct=Math.round(g.enrolled/g.capacity*100);
+      const cap=num(g.capacity)||1, enr=num(g.enrolled);
+      const free=cap-enr, pct=Math.min(100,Math.round(enr/cap*100));
       const dash=Math.round(2*Math.PI*24*pct/100), circ=Math.round(2*Math.PI*24);
       return `<div class="grp ${g.cls} rv">
         <div class="grp__h">
           <div class="grp__b la">${g.name.replace(' · ','·')}</div>
           ${free>0?`<span class="bd bd--ok la">${free} ${t('grFree')}</span>`:`<span class="bd bd--er">${t('grFull')}</span>`}
+          ${g.vis==='vip'?`<span class="bd bd--pu">${svg('lock','width="12" height="12"')}${t('vipSession')}</span>`:''}
         </div>
-        <div class="grp__n">${L_(D.byId(D.levels,g.level).ar,D.byId(D.levels,g.level).fr)}</div>
+        <div class="grp__n">${lvName(g.level)}</div>
         <div class="grp__f la">${g.name} · ${DAYS[g.day][2]} ${g.start}–${g.end}</div>
         <ul class="grp__l">
           <li>${svg('cal')}<span>${DAYS[g.day][ar()?0:1]} · <b class="la">${g.start} – ${g.end}</b></span></li>
@@ -295,13 +315,14 @@ function groups(){
               stroke-dasharray="${dash} ${circ}" style="stroke:var(--lvc)"/></svg>
           <div style="flex:1">
             <div class="flex just-b" style="font-size:.82rem;margin-block-end:5px">
-              <span class="muted">${t('grStudents')}</span><b class="la">${g.enrolled}/${g.capacity}</b></div>
+              <span class="muted">${t('grStudents')}</span><b class="la">${enr}/${cap}</b></div>
             <div class="prg prg--sm"><i data-w="${pct}%" style="width:${pct}%;background:var(--lvc)"></i></div>
           </div>
         </div>
         <div class="cd__f">
           <button class="btn btn--s btn--sm" style="flex:1">${svg('users','width="15" height="15"')}${t('grStudents')}</button>
-          <button class="iact">${svg('edit')}</button><button class="iact iact--er">${svg('trash')}</button>
+          <button class="iact" data-edit-group="${g.id}" title="${t('edit')}">${svg('edit')}</button>
+          <button class="iact iact--er" data-del-group="${g.id}" title="${t('del')}">${svg('trash')}</button>
         </div>
       </div>`;}).join('')}
     <div class="grp grp--add rv" data-add-group style="cursor:pointer">
@@ -394,7 +415,7 @@ function qbQuestions(){
 function qbPreview(){
   const xpMax = QB.questions.reduce((a,q)=>a+Math.round(X.CFG.xpBase*(X.CFG.multDiff[q.d||1]||1)*(QB.level==='4AM'?1.6:1.2)),0);
   return `
-  <div class="cd rv" style="--d:180ms;position:sticky;top:90px">
+  <div class="cd rv stick" style="--d:180ms">
     <div class="cd__h"><div class="cd__t" data-i18n="qbPrev">${t('qbPrev')}</div><span class="bd bd--ok">${svg('eye','width="12" height="12"')}${L_('مباشر','live')}</span></div>
     <div class="cd cd--flat" style="background:var(--bg2);padding:0;overflow:hidden">
       <div class="qz__bar" style="padding:12px">
@@ -409,10 +430,10 @@ function qbPreview(){
           <div class="qn" style="padding:0">
             <div class="qn__t" dir="ltr" style="text-align:start;font-size:.88rem">${q.t}</div>
             ${q.tf!==undefined
-              ? `<div class="qn__x" style="grid-template-columns:repeat(2,1fr);margin-block-start:10px">
+              ? `<div class="qn__x" style="margin-block-start:10px">
                    <button class="qo dis" style="padding:8px"><i>A</i><span>${t('tyTrue')}</span></button>
                    <button class="qo dis ok" style="padding:8px"><i>B</i><span>${t('tyFalse')}</span></button></div>`
-              : `<div class="qn__x" style="grid-template-columns:repeat(2,1fr);margin-block-start:10px">
+              : `<div class="qn__x" style="margin-block-start:10px">
                    ${q.o.map((o,j)=>`<button class="qo dis ${j===q.a?'ok':''}" style="padding:8px;font-size:.82rem"><i>${'ABCD'[j]}</i><span dir="ltr">${o}</span></button>`).join('')}</div>`}
           </div>`;})():`<div class="empty"><span class="ico ico--lg" style="margin-inline:auto">${svg('quiz')}</span><b>${t('qbEmpty')}</b></div>`}
       </div>
@@ -438,7 +459,7 @@ function qbPreview(){
 }
 function quizBuilder(){
   initQB();
-  return `<div class="g g-main" style="grid-template-columns:1fr 320px;align-items:start">
+  return `<div class="g g-main" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">${qbForm()}${qbQuestions()}</div>
     <div style="min-width:0">${qbPreview()}</div>
   </div>`;
@@ -523,29 +544,33 @@ function lessons(){
           ${l.video?`<span>${svg('play','width="13" height="13"')}${t('lsVideo')}</span>`:''}
         </div>
         <div class="cd__f"><button class="btn btn--s btn--sm" style="flex:1">${svg('edit','width="15" height="15"')}${t('edit')}</button>
-          <button class="btn btn--g btn--sm">${svg('eye','width="15" height="15"')}</button>
-          <button class="iact iact--er">${svg('trash')}</button></div>
+          <button class="btn btn--g btn--sm" data-preview-lesson="${l.id}" title="${t('seeMore')}">${svg('eye','width="15" height="15"')}</button>
+          <button class="iact iact--er" data-del-lesson="${l.id}" title="${t('del')}">${svg('trash')}</button></div>
       </div>`;}).join('')}
   </div>
   <div class="cd mt5 rv">
     <div class="cd__t mb4" data-i18n="lsEd">${t('lsEd')}</div>
     <div class="cd__s mb5" data-i18n="lsEdS">${t('lsEdS')}</div>
+    <div class="g g2 mb4" style="gap:14px">
+      <div class="fld"><label>${L_('عنوان الدرس (عربي)','Titre du cours (AR)')}</label><input class="inp inp--sm" id="lsTitleAr" placeholder="${L_('مثال: الضمائر الموصولة','Ex. : les pronoms relatifs')}"></div>
+      <div class="fld"><label>${L_('عنوان الدرس (فرنسي)','Titre du cours (FR)')}</label><input class="inp inp--sm" id="lsTitleFr" dir="ltr" placeholder="Ex. : les pronoms relatifs"></div>
+    </div>
     <div class="ed__t">
       ${[['bold','B'],['italic','I'],['underline','U'],['h','H2'],['list','•'],['quote','❝'],['link','🔗'],['img','🖼'],['code','</>']]
-        .map(([k,lb])=>`<button class="ed__b" title="${k}">${lb}</button>`).join('')}
+        .map(([k,lb])=>`<button class="ed__b" data-ed="${k}" title="${k}">${lb}</button>`).join('')}
       <span style="margin-inline-start:auto;display:flex;gap:8px">
-        <button class="btn btn--g btn--sm">${svg('save','width="15" height="15"')}${t('save')}</button>
-        <button class="btn btn--p btn--sm">${svg('up','width="15" height="15"')}${t('lsPub')}</button></span>
+        <button class="btn btn--g btn--sm" id="lsSaveDraft">${svg('save','width="15" height="15"')}${t('save')}</button>
+        <button class="btn btn--p btn--sm" id="lsPublish">${svg('up','width="15" height="15"')}${t('lsPub')}</button></span>
     </div>
-    <div class="ed__b2" contenteditable="true" dir="ltr" style="min-height:180px;padding:20px;border:1px solid var(--line);border-radius:0 0 var(--r2) var(--r2);font-size:.95rem;line-height:1.9">
+    <div class="ed__b2" id="lsEditor" contenteditable="true" dir="ltr" style="min-height:180px;padding:20px;border:1px solid var(--line);border-radius:0 0 var(--r2) var(--r2);font-size:.95rem;line-height:1.9">
       <h3 style="margin:0 0 10px">Les pronoms relatifs</h3>
       <p><b>qui</b> → sujet · <b>que</b> → COD · <b>dont</b> → complément introduit par « de » · <b>où</b> → lieu / temps</p>
       <p style="color:#55617E">Exemple : Le livre <i>dont</i> je parle est intéressant.</p>
     </div>
     <div class="g g3 mt4" style="gap:14px">
-      <div class="fld"><label>${L_('المستوى','Niveau')}</label><select class="sel sel--sm">${D.levels.map(l=>`<option>${l.id}</option>`).join('')}</select></div>
-      <div class="fld"><label>${L_('المحور','Axe')}</label><select class="sel sel--sm">${Object.values(AXFR).map(v=>`<option>${v}</option>`).join('')}</select></div>
-      <div class="fld"><label>${L_('المدة (دقائق)','Durée (min)')}</label><input class="inp inp--sm la" type="number" value="25"></div>
+      <div class="fld"><label>${L_('المستوى','Niveau')}</label><select class="sel sel--sm" id="lsLevel">${D.levels.map(l=>`<option value="${l.id}">${l.id}</option>`).join('')}</select></div>
+      <div class="fld"><label>${L_('المحور','Axe')}</label><select class="sel sel--sm" id="lsAxis">${Object.keys(AXFR).map(k=>`<option value="${k}">${AXFR[k]}</option>`).join('')}</select></div>
+      <div class="fld"><label>${L_('المدة (دقائق)','Durée (min)')}</label><input class="inp inp--sm la" id="lsMin" type="number" value="25" min="5" max="180"></div>
     </div>
   </div>`;
 }
@@ -558,15 +583,15 @@ function progression(){
   const bdgCount={};
   st.forEach(s=>(s.badges||[]).forEach(b=>{ bdgCount[b]=(bdgCount[b]||0)+1; }));
   return `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${[[t('stTotalXp'),st.reduce((a,s)=>a+s.xp,0).toLocaleString('fr-FR'),'bolt','ico--wn'],
-       [t('stAvgXp'),Math.round(st.reduce((a,s)=>a+s.xp,0)/st.length).toLocaleString('fr-FR'),'trend',''],
+       [t('stAvgXp'),Math.round(st.reduce((a,s)=>a+num(s.xp),0)/Math.max(st.length,1)).toLocaleString('fr-FR'),'trend',''],
        [t('stExDone'),st.reduce((a,s)=>a+s.exDone,0),'quiz','ico--cy'],
-       [t('stAccuracy'),Math.round(st.reduce((a,s)=>a+s.correct/s.answered*100,0)/st.length)+'%','checkc','ico--ok']]
+       [t('stAccuracy'),Math.round(st.reduce((a,s)=>a+accPct(s),0)/Math.max(st.length,1))+'%','checkc','ico--ok']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
         <div class="kpi__n la">${v}</div><div class="kpi__l">${l}</div></div>`).join('')}
   </div>
-  <div class="g g2 mt5 cas" style="grid-template-columns:380px 1fr">
+  <div class="g g2 mt5 cas g--side-l">
     <div class="cd rv">
       <div class="cd__h"><div><div class="cd__t" data-i18n="stRanks">${t('stRanks')}</div>
         <div class="cd__s">${L_('توزيع الرتب','Répartition des rangs')}</div></div></div>
@@ -597,14 +622,15 @@ function progression(){
     <div class="cd__h cd__h--b"><div><div class="cd__t">${L_('جدول تقدم التلاميذ','Tableau de progression des élèves')}</div>
       <div class="cd__s">${L_('XP · سلسلة · إتقان — بدون أي نقطة مدرسية','XP · série · maîtrise — aucune note scolaire')}</div></div>
       <button class="btn btn--g btn--sm">${svg('up','width="16" height="16"')}CSV</button></div>
+    <div class="tb__hint">${svg('arrow','width="14" height="14"')}${t('scrollHint')}</div>
     <div class="tbw"><table class="tb" style="min-width:1000px">
       <thead><tr><th>${t('stuName')}</th><th>${t('stuLevel')}</th><th>XP</th><th>${t('rank')}</th>
         <th>${t('streak')}</th><th>${t('exDone')}</th><th>${t('accuracy')}</th><th>${t('mastery')}</th><th>${t('badges')}</th></tr></thead>
       <tbody>${st.map(s=>{const r=X.rankOf(s.xp), rp=X.rankProgress(s.xp), gm=X.globalMastery(s.mastery),
-        acc=Math.round(s.correct/s.answered*100); return `<tr>
+        acc=accPct(s); return `<tr>
         <td><div class="who"><span class="av" style="background:${s.color||'#1E4FD8'}">${ini(s.fr)}</span><div><b>${L_(s.ar,s.fr)}</b><small>${s.group}</small></div></div></td>
-        <td><span class="bd bd--lv ${D.byId(D.levels,s.level).cls}">${s.level}</span></td>
-        <td><b class="la acc">${s.xp.toLocaleString('fr-FR')}</b></td>
+        <td><span class="bd bd--lv ${lvCls(s.level)}">${s.level}</span></td>
+        <td><b class="la acc">${num(s.xp).toLocaleString('fr-FR')}</b></td>
         <td><div style="min-width:110px"><div class="flex just-b" style="font-size:.78rem;margin-block-end:4px">
           <span class="muted">${L_(r.ar,r.fr)}</span><span class="la faint">${rp.pct}%</span></div>
           <div class="prg prg--sm"><i data-w="${rp.pct}%" style="width:${rp.pct}%"></i></div></div></td>
@@ -691,13 +717,7 @@ function show(mn){
   bindCommon(p);
 }
 function bindCommon(p){
-  const add=(sel,msg)=>{ const b=$(sel,p); if(b) b.addEventListener('click',()=>toast(msg,'info',2600)); };
-  add('[data-add-student]', L_('نموذج تسجيل تلميذ جديد (تجريبي)','Formulaire d’inscription d’un élève (démo)'));
-  add('[data-add-group]',   L_('نموذج إنشاء فوج جديد (تجريبي)','Formulaire de création d’un groupe (démo)'));
-  add('[data-add-lesson]',  L_('محرّر الدروس في الأسفل ↓','L’éditeur de cours est en bas ↓'));
-  add('[data-new-session]', L_('إضافة حصة خاصة جديدة (تجريبي)','Ajouter une séance de cours particulier (démo)'));
-  add('[data-link]',        L_('أُرسل رابط الربط إلى البريد ✓','Lien de rattachement envoyé ✓'));
-  add('[data-print]',       L_('جارٍ تجهيز PDF للطباعة…','Préparation du PDF pour impression…'));
+  bindWrites(p);                       // écritures réelles (annonces, cours, élèves, groupes…)
   const f=$('#stuFilter',p);
   if(f) f.addEventListener('input',()=>{
     const v=f.value.trim().toLowerCase();
@@ -719,7 +739,7 @@ function bindCommon(p){
         <button class="iact" data-close>${svg('x')}</button></div>
       <div class="md__b">
         <div class="flex items-c gap3 mb4"><span class="ico">${svg(r.icon)}</span>
-          <div><b>${L_(r.ar,r.fr)}</b><div class="muted la" style="font-size:.82rem">${s.xp.toLocaleString('fr-FR')} XP · ${rp.pct}%</div></div></div>
+          <div><b>${L_(r.ar,r.fr)}</b><div class="muted la" style="font-size:.82rem">${num(s.xp).toLocaleString('fr-FR')} XP · ${rp.pct}%</div></div></div>
         <div class="prg mb5"><i style="width:${rp.pct}%"></i></div>
         <div class="g g3 mb5" style="gap:12px">
           ${[[t('streak'),s.streak],[t('accuracy'),acc+'%'],[t('mastery'),mst+'%']]
@@ -727,16 +747,296 @@ function bindCommon(p){
               <div class="la" style="font-size:1.3rem;font-weight:800">${v}</div><div class="muted" style="font-size:.78rem">${l}</div></div>`).join('')}
         </div>
         <div class="cd__t mb4" style="font-size:.95rem">${t('mastery')}</div>
-        <div class="g gap3">${Object.entries(s.mastery).map(([k,v])=>`<div>
+        <div class="g gap3">${Object.entries(s.mastery||{}).map(([k,v])=>`<div>
           <div class="flex just-b" style="font-size:.82rem;margin-block-end:5px"><b class="la">${AXFR[k]||k}</b><span class="la muted">${v}%</span></div>
           <div class="prg prg--sm"><i style="width:${v}%"></i></div></div>`).join('')}</div>
         <div class="cd__t mt5 mb3" style="font-size:.95rem">${t('badges')}</div>
-        <div class="flex gap3 wrap-f">${s.badges.map(id=>{const b=X.BADGES.find(x=>x.id===id);return b?`<span class="bd">${svg(b.icon,'width="13" height="13"')}${t(b.i18n)}</span>`:'';}).join('')||`<span class="muted">${t('empty')}</span>`}</div>
+        <div class="flex gap3 wrap-f">${(s.badges||[]).map(id=>{const b=X.BADGES.find(x=>x.id===id);return b?`<span class="bd">${svg(b.icon,'width="13" height="13"')}${t(b.i18n)}</span>`:'';}).join('')||`<span class="muted">${t('empty')}</span>`}</div>
       </div>
       <div class="md__f"><button class="btn btn--g" data-close>${t('close')}</button>
-        <button class="btn btn--p">${svg('edit','width="17" height="17"')}${t('edit')}</button></div>
+        <button class="btn btn--p" data-edit-student="${s.id}">${svg('edit','width="17" height="17"')}${t('edit')}</button></div>
     </div>`);
   }));
+}
+/* ══════════════════ ENREGISTREMENTS RÉELS (Firestore) ══════════════════
+   Annonces · cours · élèves · groupes/séances (dont VIP) · liaison des
+   comptes · import CSV · réponses aux messages.
+   Tout passe par window.PKdb (écriture + message d'erreur clair).     */
+let _writesBound = false;
+function bindWrites(){
+  if(_writesBound) return; _writesBound = true;
+  document.addEventListener('click', onWrite);
+  document.addEventListener('change', ev=>{
+    if(ev.target && ev.target.id === 'stuCsv' && ev.target.files && ev.target.files[0]) importStudents(ev.target.files[0]);
+    if(ev.target && ev.target.id === 'gpVis'){ const b=$('#gpVipBox'); if(b) b.classList.toggle('hide', ev.target.value!=='vip'); }
+  });
+}
+const okToast  = k => toast(t(k), 'ok', 3000);
+const errToast = k => toast(t(k), 'er', 3200);
+function refresh(){ try{ show(document); syncTop(document); }catch(e){ console.warn(e); } }
+function closeModals(){ $$('.mdl').forEach(m=>m.remove()); document.body.style.overflow=''; }
+function confirmThen(msg, fn){ if(window.confirm(msg)) fn(); }
+function colorFor(level){ return {'1AM':'linear-gradient(140deg,#0B8FA8,#0B8FA8)','2AM':'linear-gradient(140deg,#7048E8,#7048E8)',
+  '3AM':'linear-gradient(140deg,#0FA97C,#0FA97C)','4AM':'linear-gradient(140deg,#1E4FD8,#0B2470)'}[level] || 'linear-gradient(140deg,#1E4FD8,#0B2470)'; }
+function val(id){ const el=document.getElementById(id); return el ? String(el.value||'').trim() : ''; }
+/** recharge les données d'administration depuis Firestore puis réaffiche */
+function reloadAdmin(){
+  const u = window.PKdb.currentUser && window.PKdb.currentUser();
+  if(u && window.PKdb.hydrateMe) Promise.resolve(window.PKdb.hydrateMe(u)).then(refresh, refresh);
+  else refresh();
+}
+
+function onWrite(e){
+  const tgt = e.target;
+  /* ── ANNONCES ── */
+  if(tgt.closest('[data-send-ann]'))  return sendAnnouncement();
+  const dAnn = tgt.closest('[data-del-ann]');
+  if(dAnn) return confirmThen(t('confirmDel'), ()=> window.PKdb.remove('announcements', dAnn.dataset.delAnn).then(r=>{ if(r.ok){ okToast('savedOk'); refresh(); } }));
+  const pAnn = tgt.closest('[data-pin-ann]');
+  if(pAnn) return window.PKdb.set('announcements', pAnn.dataset.pinAnn, {pinned: pAnn.dataset.pin !== '1'}).then(r=>{ if(r.ok){ okToast('savedOk'); refresh(); } });
+
+  /* ── COURS ── */
+  if(tgt.closest('#lsPublish'))   return saveLesson(true);
+  if(tgt.closest('#lsSaveDraft')) return saveLesson(false);
+  const ed = tgt.closest('[data-ed]');
+  if(ed){ const cmd={bold:'bold',italic:'italic',underline:'underline',h:'formatBlock',list:'insertUnorderedList',quote:'formatBlock'}[ed.dataset.ed];
+    try{ if(cmd==='formatBlock') document.execCommand(cmd,false, ed.dataset.ed==='h'?'H2':'BLOCKQUOTE'); else if(cmd) document.execCommand(cmd,false,null); }catch(_){}
+    return; }
+  const dLs = tgt.closest('[data-del-lesson]');
+  if(dLs) return confirmThen(t('confirmDel'), ()=> window.PKdb.remove('lessons', dLs.dataset.delLesson).then(r=>{ if(r.ok){ okToast('savedOk'); refresh(); } }));
+  const pv = tgt.closest('[data-preview-lesson]');
+  if(pv){ try{ window.open('../student/lesson.html?id='+encodeURIComponent(pv.dataset.previewLesson),'_blank'); }catch(_){} return; }
+
+  /* ── ÉLÈVES ── */
+  if(tgt.closest('[data-add-student]'))  return openStudentModal(null);
+  const eSt = tgt.closest('[data-edit-student]');
+  if(eSt) return openStudentModal(eSt.dataset.editStudent);
+  const dSt = tgt.closest('[data-del-student]');
+  if(dSt) return confirmThen(t('confirmDel'), ()=> window.PKdb.remove('students', dSt.dataset.delStudent).then(r=>{ if(r.ok){ okToast('savedOk'); refresh(); } }));
+  const svSt = tgt.closest('[data-save-student]');
+  if(svSt) return saveStudent(svSt.dataset.saveStudent);
+  const lk = tgt.closest('[data-link-uid]');
+  if(lk){
+    const u = lk.dataset.linkUid;
+    const sel = document.querySelector('[data-card-for="'+u+'"]');
+    const cardId = sel ? sel.value : '';
+    if(!cardId) return errToast('chooseCard');
+    return window.PKdb.linkStudent(cardId, u).then(r=>{ if(r.ok){ okToast('savedOk'); reloadAdmin(); } });
+  }
+  if(tgt.closest('[data-tpl-csv]')) return downloadTemplate();
+
+  /* ── GROUPES / SÉANCES ── */
+  if(tgt.closest('[data-add-group]') || tgt.closest('[data-new-session]')) return openGroupModal(null);
+  const eGr = tgt.closest('[data-edit-group]') || tgt.closest('[data-sess]');
+  if(eGr) return openGroupModal(eGr.dataset.editGroup || eGr.dataset.sess);
+  const dGr = tgt.closest('[data-del-group]');
+  if(dGr) return confirmThen(t('confirmDel'), ()=> window.PKdb.remove('groups', dGr.dataset.delGroup).then(r=>{ if(r.ok){ okToast('savedOk'); refresh(); } }));
+  const svGr = tgt.closest('[data-save-group]');
+  if(svGr) return saveGroup(svGr.dataset.saveGroup);
+
+  /* ── DIVERS ── */
+  if(tgt.closest('[data-print]')) { try{ window.print(); }catch(_){} return; }
+  if(tgt.closest('#adPublish')){ try{ window.open('../index.html','_blank'); }catch(_){} return; }
+}
+
+/* ── ANNONCE ── */
+function sendAnnouncement(){
+  const titleAr = val('annTitleAr'), titleFr = val('annTitleFr'), body = val('annBody');
+  const importance = val('annImportance') || 'info';
+  const audience = val('annAudience') || 'all';
+  const pinnedEl = document.getElementById('annPinned');
+  if(!titleAr || !body){ errToast('requiredFields'); return; }
+  const grp = (D.groups||[]).find(x=>x.id===audience), lvl = (D.levels||[]).find(x=>x.id===audience);
+  const audAr = audience==='all' ? L_('كل التلاميذ','Tous les élèves') : (grp ? grp.name : (lvl ? lvl.ar : audience));
+  const audFr = audience==='all' ? L_('كل التلاميذ','Tous les élèves') : (grp ? grp.name : (lvl ? lvl.fr : audience));
+  const FF = window.PKdb.fb && window.PKdb.fb.ff;
+  const doc = {
+    i18n:{ar:titleAr, fr:titleFr||titleAr, arBody:body, frBody:body},
+    titleAr, titleFr:titleFr||titleAr, bodyAr:body, bodyFr:body,
+    importance, audience, audienceAr:audAr, audienceFr:audFr,
+    pinned: !!(pinnedEl && pinnedEl.checked), date: window.PKdb.today(),
+    at: FF ? FF.serverTimestamp() : new Date()
+  };
+  window.PKdb.add('announcements', doc).then(r=>{
+    if(r.ok){ okToast('adPublished'); ['annTitleAr','annTitleFr','annBody'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); refresh(); }
+  });
+}
+
+/* ── COURS ── */
+function saveLesson(publish){
+  const editor = document.getElementById('lsEditor');
+  const content = editor ? editor.innerHTML.trim() : '';
+  const plain = content.replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+  const titleAr = val('lsTitleAr'), titleFr = val('lsTitleFr');
+  if(!titleAr || !titleFr || plain.length < 10){ errToast('requiredFields'); return; }
+  const FF = window.PKdb.fb && window.PKdb.fb.ff;
+  const doc = {
+    ar:titleAr, fr:titleFr, sumAr:plain.slice(0,150), sumFr:plain.slice(0,150),
+    level:val('lsLevel') || '4AM', ax:val('lsAxis') || 'grammaire',
+    min:+val('lsMin') || 25, xp:25, files:0, video:false, isNew:!!publish,
+    done:!!publish, content, at: FF ? FF.serverTimestamp() : new Date(), date: window.PKdb.today()
+  };
+  window.PKdb.add('lessons', doc).then(r=>{
+    if(r.ok){
+      okToast(publish ? 'adPublished' : 'savedOk');
+      ['lsTitleAr','lsTitleFr'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+      if(editor) editor.innerHTML='';
+      refresh();
+    }
+  });
+}
+
+/* ── ÉLÈVE : formulaire ── */
+function studentForm(s){
+  s = s || {};
+  const gOpts = (D.groups||[]).map(g=>`<option value="${g.id}" ${s.group===g.id?'selected':''}>${esc(g.name)} — ${g.level||''}</option>`).join('');
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div class="g g2" style="gap:14px">
+      <div class="fld"><label>${L_('الاسم بالعربية','Nom (AR)')}</label><input class="inp" id="stAr" value="${esc(s.ar)}"></div>
+      <div class="fld"><label>${L_('الاسم بالفرنسية','Nom (FR)')}</label><input class="inp" id="stFr" dir="ltr" value="${esc(s.fr||'')}"></div>
+    </div>
+    <div class="g g2" style="gap:14px">
+      <div class="fld"><label>${L_('المستوى','Niveau')}</label><select class="sel" id="stLevel">${D.levels.map(l=>`<option value="${l.id}" ${s.level===l.id?'selected':''}>${l.id} — ${L_(l.ar,l.fr)}</option>`).join('')}</select></div>
+      <div class="fld"><label>${L_('الفوج','Groupe')}</label><select class="sel" id="stGroup"><option value="">—</option>${gOpts}</select></div>
+    </div>
+    <div class="fld"><label>${L_('ولي الأمر (هاتف / بريد)','Parent (tél. / e-mail)')}</label><input class="inp" id="stParent" dir="ltr" value="${esc(s.parent||'')}"></div>
+    <p class="help">${L_('ملاحظة: لا توجد أي نقطة مدرسية — التتبّع عبر XP فقط.','Note : aucune note scolaire — suivi par XP uniquement.')}</p>
+  </div>`;
+}
+function openStudentModal(id){
+  const s = id ? (D.students||[]).find(x=>x.id===id) : null;
+  closeModals();
+  modal(id ? L_('تعديل بيانات تلميذ','Modifier l’élève') : t('stuAdd'), studentForm(s),
+    `<button class="btn btn--g" data-close>${t('cancel')}</button>
+     <button class="btn btn--p" data-save-student="${id||''}">${svg('save','width="17" height="17"')}${t('save')}</button>`);
+}
+function saveStudent(id){
+  const ar = val('stAr'), fr = val('stFr') || ar, level = val('stLevel');
+  if(!ar){ errToast('requiredFields'); return; }
+  const data = { ar, fr, level, group: val('stGroup') || null, parent: val('stParent') || null,
+                 status:'active', color: colorFor(level) };
+  const pr = id ? window.PKdb.set('students', id, data) : window.PKdb.add('students', data);
+  pr.then(r=>{ if(r.ok){ okToast('savedOk'); closeModals(); refresh(); } });
+}
+
+/* ── GROUPE / SÉANCE (public ou VIP) ── */
+function groupForm(g){
+  g = g || {};
+  const sel = new Set(g.vipUids||[]);
+  const dayOpts = Object.keys(DAYS).map(d=>`<option value="${d}" ${g.day===d?'selected':''}>${DAYS[d][ar()?0:1]}</option>`).join('');
+  const stOpts = (D.students||[]).map(s=>`<option value="${s.id}" ${sel.has(s.id)?'selected':''}>${esc(L_(s.ar,s.fr))} — ${s.level||''}</option>`).join('');
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div class="g g2" style="gap:14px">
+      <div class="fld"><label>${L_('اسم الفوج / الحصة','Nom du groupe / séance')}</label><input class="inp" id="gpName" dir="ltr" value="${esc(g.name||'')}" placeholder="4AM · A"></div>
+      <div class="fld"><label>${L_('المستوى','Niveau')}</label><select class="sel" id="gpLevel">${D.levels.map(l=>`<option value="${l.id}" ${g.level===l.id?'selected':''}>${l.id}</option>`).join('')}</select></div>
+    </div>
+    <div class="g g3" style="gap:14px">
+      <div class="fld"><label>${L_('اليوم','Jour')}</label><select class="sel" id="gpDay">${dayOpts}</select></div>
+      <div class="fld"><label>${L_('البداية','Début')}</label><input class="inp la" id="gpStart" dir="ltr" value="${esc(g.start||'15:45')}" placeholder="15:45"></div>
+      <div class="fld"><label>${L_('النهاية','Fin')}</label><input class="inp la" id="gpEnd" dir="ltr" value="${esc(g.end||'17:15')}" placeholder="17:15"></div>
+    </div>
+    <div class="g g2" style="gap:14px">
+      <div class="fld"><label>${L_('المدرسة / المكان (عربي)','École / lieu (AR)')}</label><input class="inp" id="gpSchoolAr" value="${esc(g.schoolAr||'')}"></div>
+      <div class="fld"><label>${L_('École / lieu (FR)','المدرسة / المكان (فرنسي)')}</label><input class="inp" id="gpSchoolFr" dir="ltr" value="${esc(g.schoolFr||'')}"></div>
+    </div>
+    <div class="g g3" style="gap:14px">
+      <div class="fld"><label>${L_('القاعة','Salle')}</label><input class="inp" id="gpRoom" value="${esc(g.room||'')}" placeholder="Cabinet"></div>
+      <div class="fld"><label>${L_('السعة','Capacité')}</label><input class="inp la" id="gpCap" type="number" min="1" max="60" value="${num(g.capacity)||6}"></div>
+      <div class="fld"><label>${L_('نوع الحصة','Type de séance')}</label>
+        <select class="sel" id="gpVis">
+          <option value="public" ${g.vis!=='vip'?'selected':''}>${t('publicSession')}</option>
+          <option value="vip" ${g.vis==='vip'?'selected':''}>${t('vipSession')}</option>
+        </select></div>
+    </div>
+    <div class="fld ${g.vis==='vip'?'':'hide'}" id="gpVipBox"><label>${t('vipWho')}</label>
+      <select class="sel" id="gpVipUids" multiple size="4" style="height:auto">${stOpts||`<option disabled>${t('noStudents')}</option>`}</select>
+      <span class="help">${L_('Ctrl (أو Cmd) لاختيار عدة تلاميذ. الحصة الخاصة لا تظهر إلا لهم.','Ctrl (ou Cmd) pour choisir plusieurs élèves. Une séance privée n’apparaît que pour eux.')}</span></div>
+  </div>`;
+}
+function openGroupModal(id){
+  const g = id ? (D.groups||[]).find(x=>x.id===id) : null;
+  closeModals();
+  modal(id ? L_('تعديل حصة','Modifier la séance') : t('ttNew'), groupForm(g),
+    `<button class="btn btn--g" data-close>${t('cancel')}</button>
+     <button class="btn btn--p" data-save-group="${id||''}">${svg('save','width="17" height="17"')}${t('save')}</button>`);
+}
+function saveGroup(id){
+  const name = val('gpName'), level = val('gpLevel');
+  if(!name){ errToast('requiredFields'); return; }
+  const vipSel = document.getElementById('gpVipUids');
+  const vipUids = vipSel ? Array.from(vipSel.selectedOptions||[]).map(o=>o.value).filter(Boolean) : [];
+  const vis = val('gpVis') === 'vip' ? 'vip' : 'public';
+  const old = id ? (D.groups||[]).find(x=>x.id===id) : null;
+  const data = {
+    name, level, cls: lvCls(level),
+    day: val('gpDay') || 'sat', start: val('gpStart') || '15:45', end: val('gpEnd') || '17:15',
+    schoolAr: val('gpSchoolAr'), schoolFr: val('gpSchoolFr') || val('gpSchoolAr'),
+    teacher: (old && old.teacher) || 'Prof. Kerdjidj', room: val('gpRoom'),
+    capacity: +val('gpCap') || 6, enrolled: old ? num(old.enrolled) : 0, mode:'onsite',
+    vis, vipUids: vis==='vip' ? vipUids : []
+  };
+  const pr = id ? window.PKdb.set('groups', id, data) : window.PKdb.add('groups', data);
+  pr.then(r=>{ if(r.ok){ okToast('savedOk'); closeModals(); refresh(); } });
+}
+
+/* ── IMPORT CSV + MODÈLE ── */
+function importStudents(file){
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    const txt = String(rd.result||'').replace(/^\uFEFF/,'');
+    const lines = txt.split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length < 2){ errToast('requiredFields'); return; }
+    const sep = (lines[0].match(/;/g)||[]).length > (lines[0].match(/,/g)||[]).length ? ';' : ',';
+    const head = lines[0].split(sep).map(h=>h.trim().toLowerCase());
+    const at = k => head.indexOf(k);
+    const rows = lines.slice(1).map(l=>l.split(sep));
+    const pick = (r,k)=>{ const j=at(k); return j>=0 ? String(r[j]||'').trim() : ''; };
+    const addNext = i=>{
+      if(i >= rows.length){ okToast('csvImported'); refresh(); return; }
+      const r = rows[i];
+      const ar = pick(r,'ar') || pick(r,'nom') || String(r[0]||'').trim();
+      if(!ar){ addNext(i+1); return; }
+      const level = pick(r,'level') || pick(r,'niveau') || '4AM';
+      window.PKdb.add('students', {
+        ar, fr: pick(r,'fr') || ar, level,
+        group: pick(r,'group') || pick(r,'groupe') || null,
+        parent: pick(r,'parent') || null, status:'active', color: colorFor(level)
+      }).then(()=> addNext(i+1), ()=> addNext(i+1));
+    };
+    addNext(0);
+  };
+  rd.readAsText(file, 'utf-8');
+}
+function downloadTemplate(){
+  try{
+    const csv = 'ar,fr,level,group,parent\n' + L_('أحمد بن علي','Ahmed Benali') + ',' + L_('Ahmed Benali','أحمد بن علي') + ',4AM,,0555000000\n';
+    const url = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'}));
+    const a = document.createElement('a'); a.href = url; a.download = 'eleves-modele.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(_){} }, 1500);
+    toast(L_('تم تنزيل النموذج ✓','Modèle téléchargé ✓'),'ok',2600);
+  }catch(_){ toast(L_('تعذّر تنزيل النموذج','Téléchargement impossible'),'er',2600); }
+}
+
+/** retrouve l'uid de l'élève destinataire d'une réponse */
+function receiverUid(msg){
+  msg = msg || {};
+  const users = window.PKdata.users || [];
+  if(msg.from && users.some(u=>u.id===msg.from)) return msg.from;
+  const plain = String(msg.contact||'').trim().toLowerCase();
+  if(!plain) return '';
+  const byMail = users.find(u=>(u.email||'').toLowerCase()===plain);
+  if(byMail) return byMail.id;
+  const card = (window.PKdata.students||[]).find(s=>String(s.parent||'').trim().toLowerCase()===plain);
+  if(card){ const u = users.find(x=>x.linkedStudentId===card.id); if(u) return u.id; }
+  return '';
+}
+/** marque un message comme lu (sans bloquer l'interface) */
+function markMsgRead(i){
+  const m = (window.PKdata.messages||[]).slice().reverse()[i];
+  if(!m || m.read) return;
+  m.read = true;
+  if(!window.PKdb.mock && m.id) window.PKdb.set('messages', m.id, {read:true});
 }
 function filterChips(p,f){
   $$('#stuTable tbody tr',p).forEach(tr=>{
@@ -759,7 +1059,7 @@ function qbank(){
   const qs=[]; D.exercises.forEach(e=> e.questions.forEach(q=> qs.push({e,q})));
   const byAx={}; qs.forEach(({e})=>{ byAx[e.ax]=(byAx[e.ax]||0)+1; });
   return `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${[[t('adQbank'),qs.length,'layers','ico--pu'],[t('qbAx'),Object.keys(byAx).length,'target','ico--cy'],
        [t('exTypes'),3,'quiz',''],[t('diff')+L_(' صعلة',' difficultés'),3,'bolt','ico--wn']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
@@ -804,7 +1104,7 @@ function announce(){
       <p class="muted" style="font-size:.9rem">${L_('تصل التلاميذ فوراً في فضاءهم','Parviennent immédiatement aux élèves dans leur espace')}</p></div>
     <button class="btn btn--p" data-new-ann>${svg('plus','width="17" height="17"')}${L_('إعلان جديد','Nouvelle annonce')}</button>
   </div>
-  <div class="g g-main" style="grid-template-columns:1fr 380px;align-items:start">
+  <div class="g g-main" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
       ${D.announcements.map(a=>{
         const c=a.i18n||{}; const imp=a.importance||'info';
@@ -818,23 +1118,23 @@ function announce(){
           </div>
           <p style="font-size:.92rem;line-height:1.85">${L_(c.arBody||a.bodyAr,c.frBody||a.bodyFr)||L_('',' ')}</p>
           <div class="cd__f"><button class="btn btn--s btn--sm">${svg('edit','width="15" height="15"')}${t('edit')}</button>
-            <button class="btn btn--g btn--sm">${svg('pin','width="15" height="15"')}${a.pinned?L_('إلغاء التثبيت','Détacher'):L_('تثبيت','Épingler')}</button>
-            <button class="iact iact--er" style="margin-inline-start:auto">${svg('trash')}</button></div>
+            <button class="btn btn--g btn--sm" data-pin-ann="${a.id}" data-pin="${a.pinned?1:0}">${svg('pin','width="15" height="15"')}${a.pinned?L_('إلغاء التثبيت','Détacher'):L_('تثبيت','Épingler')}</button>
+            <button class="iact iact--er" style="margin-inline-start:auto" data-del-ann="${a.id}" title="${t('del')}">${svg('trash')}</button></div>
         </div>`;}).join('')}
     </div>
-    <div class="cd rv" style="position:sticky;top:90px">
+    <div class="cd rv stick">
       <div class="cd__t mb4" data-i18n="adAnn">${t('adAnn')}</div>
-      <div class="fld"><label>${L_('العنوان بالعربية','Titre (AR)')}</label><input class="inp" placeholder="${L_('مثال: حصّة تعويضية','Ex. : séance de rattrapage')}"></div>
-      <div class="fld mt4"><label>${L_('Titre (FR)','العنوان بالفرنسية')}</label><input class="inp" dir="ltr" placeholder="Ex. : séance de rattrapage"></div>
-      <div class="fld mt4"><label>${L_('النص','Message')}</label><textarea class="inp ta" rows="4" placeholder="…"></textarea></div>
+      <div class="fld"><label>${L_('العنوان بالعربية','Titre (AR)')}</label><input class="inp" id="annTitleAr" placeholder="${L_('مثال: حصّة تعويضية','Ex. : séance de rattrapage')}"></div>
+      <div class="fld mt4"><label>${L_('العنوان بالفرنسية','Titre (FR)')}</label><input class="inp" id="annTitleFr" dir="ltr" placeholder="Ex. : séance de rattrapage"></div>
+      <div class="fld mt4"><label>${L_('النص','Message')}</label><textarea class="inp ta" id="annBody" rows="4" placeholder="…"></textarea></div>
       <div class="g g2 mt4" style="gap:12px">
         <div class="fld"><label>${L_('الأهمية','Importance')}</label>
-          <select class="sel sel--sm"><option>${L_('معلومة','Info')}</option><option>${L_('مهم','Important')}</option><option>${L_('عاجل','Urgent')}</option></select></div>
+          <select class="sel sel--sm" id="annImportance"><option value="info">${L_('معلومة','Info')}</option><option value="important">${L_('مهم','Important')}</option><option value="urgent">${L_('عاجل','Urgent')}</option></select></div>
         <div class="fld"><label>${L_('الجمهور','Audience')}</label>
-          <select class="sel sel--sm"><option>${L_('الكل','Tous')}</option>${D.groups.map(g=>`<option>${g.name}</option>`).join('')}${D.levels.map(l=>`<option>${l.id}</option>`).join('')}</select></div>
+          <select class="sel sel--sm" id="annAudience"><option value="all">${L_('الكل','Tous')}</option>${D.groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')}${D.levels.map(l=>`<option value="${l.id}">${l.id}</option>`).join('')}</select></div>
       </div>
       <label class="flex items-c gap3 mt4" style="font-size:.88rem;cursor:pointer">
-        <input type="checkbox" checked> ${L_('تثبيت في أعلى فضاء التلميذ','Épingler en haut de l’espace élève')}</label>
+        <input type="checkbox" id="annPinned" checked> ${L_('تثبيت في أعلى فضاء التلميذ','Épingler en haut de l’espace élève')}</label>
       <button class="btn btn--p btn--blk mt5" data-send-ann>${svg('up','width="17" height="17"')}${L_('نشر الإعلان','Publier l’annonce')}</button>
       <p class="muted mt4" style="font-size:.78rem;line-height:1.7">${svg('info','width="13" height="13" style="display:inline;vertical-align:-2px"')}
         ${L_('يمكن إرسال إعلان بالبريد لاحقاً عند ربط Firebase.','Un envoi par e-mail pourra être ajouté après connexion à Firebase.')}</p>
@@ -853,11 +1153,11 @@ function messages(){
   const grad=['linear-gradient(140deg,#1E4FD8,#4E7CFF)','linear-gradient(140deg,#0FA97C,#0B8FA8)','linear-gradient(140deg,#E08A00,#F5B942)','linear-gradient(140deg,#B423A2,#E0487F)'];
   const msgs=raw.map((m,i)=>({raw:m, n:m.from||'—',
     s:[m.level,m.subject].filter(Boolean).join(' · ')||m.contact||'',
-    c:grad[i%grad.length], d:m.when||'', ar:m.body||'', fr:m.body||'', unread:!m.read}));
+    c:grad[i%grad.length], d:m.d||m.when||'', ar:m.body||'', fr:m.body||'', unread:!m.read}));
   const m0=msgs[Math.min(msgSel,msgs.length-1)];
   const ini=w=>String(w).split(' ').map(x=>x[0]).join('').slice(0,2);
   return `
-  <div class="g" style="grid-template-columns:340px 1fr;gap:20px;align-items:start">
+  <div class="g g--side-l" style="gap:20px;align-items:start">
     <div class="cd cd--f rv" style="padding:0;overflow:hidden">
       <div style="padding:16px 18px;border-block-end:1px solid var(--line)">
         <div class="srch">${svg('search')}<input class="inp inp--sm" placeholder="${L_('ابحث في الرسائل…','Rechercher…')}"></div>
@@ -891,15 +1191,21 @@ function messages(){
     ${L_('الرسائل تُحفظ في مجموعة <b>messages</b> في Firestore — تصل رسائل صفحة «تواصل» وفضاء التلاميذ إلى هنا.','Les messages sont stockés dans la collection <b>messages</b> de Firestore — ceux de la page « Contact » et de l’espace élève arrivent ici.')}</p>`;
 }
 function bindMessages(p){
-  p.querySelectorAll('[data-msg]').forEach(b=> b.addEventListener('click',()=>{ msgSel=+b.dataset.msg; show(document); }));
+  p.querySelectorAll('[data-msg]').forEach(b=> b.addEventListener('click',()=>{ msgSel=+b.dataset.msg; markMsgRead(msgSel); show(document); }));
   const sd=p.querySelector('[data-send]');
   if(sd) sd.addEventListener('click', async ()=>{
     const ta=p.querySelector('.msgc textarea'); const v=(ta&&ta.value||'').trim();
     if(!v){ window.PK.toast(L_('اكتب الردّ أولاً','Écrivez d’abord votre réponse'),'wn',2200); return; }
     const cur=(window.PKdata.messages||[]).slice().reverse()[msgSel]||{};
-    await window.PKdb.add('messages',{from:'Prof. Kerdjidj', role:'reply', to:cur.contact||'', body:v});
-    window.PK.toast(L_('أُرسل الرد ✓','Réponse envoyée ✓'),'ok',2400);
-    show(document);
+    const FF = window.PKdb.fb && window.PKdb.fb.ff;
+    const u  = window.PKdb.currentUser && window.PKdb.currentUser();
+    /* la réponse est adressée à l'uid de l'élève → il la lit dans son espace */
+    const r = await window.PKdb.add('messages', {
+      from: (u && u.uid) || 'admin', fromName:'Prof. Kerdjidj', role:'reply',
+      to: receiverUid(cur), replyTo: cur.id || null, body: v,
+      at: FF ? FF.serverTimestamp() : new Date()
+    });
+    if(r.ok){ window.PK.toast(L_('أُرسل الرد ✓','Réponse envoyée ✓'),'ok',2400); show(document); }
   });
   const dl=p.querySelector('[data-del-msg]');
   if(dl) dl.addEventListener('click', async ()=>{
@@ -932,7 +1238,7 @@ function settings(){
       <span class="bd bd--gy la">${k}</span></label>`;
 
   return `
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main" style="align-items:start">
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
 
       <div class="cd rv">
@@ -1042,7 +1348,7 @@ function settings(){
         </div>
       </div>
 
-      <div class="flex gap3 wrap-f items-c" style="position:sticky;bottom:0;background:var(--bg);padding:14px 0;border-block-start:1px solid var(--line);z-index:5">
+      <div class="flex gap3 wrap-f items-c stickb">
         <button class="btn btn--p btn--lg" data-save-set>${svg('save','width="18" height="18"')}${t('save')}</button>
         <button class="btn btn--g" data-reload-set>${svg('refresh','width="17" height="17"')}${L_('تراجع عن التغييرات','Annuler les modifications')}</button>
         <button class="btn btn--er" data-reset-set style="margin-inline-start:auto">${svg('trash','width="17" height="17"')}${L_('إعادة القيم الأصلية','Valeurs d’usine')}</button>
@@ -1051,7 +1357,7 @@ function settings(){
     </div>
 
     <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
-      <div class="cd rv" style="position:sticky;top:90px">
+      <div class="cd rv stick">
         <div class="cd__t mb4">${L_('معاينة صفحة «تواصل»','Aperçu de la page Contact')}</div>
         <div class="cinfo"><span class="cred__i">${svg('phone')}</span><div><b>${L_('الهاتف','Téléphone')}</b><p dir="ltr" data-pv="phone">${S.phone}</p></div></div>
         <div class="cinfo"><span class="cred__i">${svg('wa')}</span><div><b>WhatsApp</b><p dir="ltr" data-pv="whatsapp">${S.whatsapp}</p></div></div>
@@ -1208,7 +1514,36 @@ function bindSettings(panel){
   });
 }
 
-window.PKapp.bootApp('admin','index.html'+location.hash,{top:false},render);
+/* ══════════════════ AMORÇAGE SÉCURISÉ DU PANNEAU ══════════════════
+   · Mode connecté : RIEN d'autre que l'écran de connexion tant que le
+     rôle admin n'est pas confirmé par Firestore.
+   · Mode démo (aucune configuration Firebase) : le panneau s'ouvre
+     pour la démonstration, comme avant.                              */
+function isDemo(){ return !!(window.PKdb && window.PKdb.mock && !window.PKdb.failed); }
+function mountGate(){
+  const host = $('#app'); if(!host) return;
+  host.className = 'app app--gate';
+  host.innerHTML = `<main class="mn" id="mn">${window.PKapp.PKgate.html({role:'admin'})}</main>`;
+  const mn = $('#mn');
+  window.PKapp.PKgate.bind(mn, paint);
+  window.PKi18n.translateDom(window.PKi18n.current());
+  window.PK.initReveal(mn);
+}
+function paint(){
+  const m = window.PKdata.me;
+  if(!(isDemo() || (m && m.role === 'admin'))){ mountGate(); return; }
+  const mn = window.PKapp.mountApp('admin','index.html'+location.hash,{top:false});
+  render(mn);
+  /* migration douce : séances créées avant l'ajout du champ vis → publiques */
+  if(!isDemo() && window.PKdb.migrateGroups)
+    window.PKdb.migrateGroups().then(r=>{ if(r && r.migrated) reloadAdmin(); }, ()=>{});
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  window.PK.boot(null);
+  document.addEventListener('pk:me', ()=>paint());
+  document.addEventListener('pk:lang', ()=>paint());
+  window.PKdb.init().then(()=>paint(), ()=>paint());
+});
 window.addEventListener('hashchange', ()=>{
   const next = moduleFromHash();
   if(next !== cur){ cur = next; show(document.querySelector('.mn') || document.body); syncTop(document); }

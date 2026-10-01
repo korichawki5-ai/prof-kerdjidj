@@ -100,12 +100,19 @@ const days  = ["sat","sun","mon","tue","wed","thu"];
 /* ───────── ÉLÈVES (avec progression, PAS de notes scolaires) ───────── */
 const students = [];  /* admin uniquement, depuis Firestore */
 
+/* ───────── COMPTES (users) ET PROGRESSION (progress) ─────────
+   L'XP vit dans progress/{uid} : la fiche élève reste administrative.
+   Ces deux listes ne sont remplies qu'en mode connecté (admin).      */
+const users = [];     /* comptes Google / e-mail liés aux fiches élèves */
+const progress = [];  /* progression réelle de chaque compte */
+
 /* ───────── PROFIL DE DÉMONSTRATION (élève connecté) ───────── */
 const me = null;  /* profil réel : users/{uid} + progress (hydrateMe) */
 
 /* ───────── ANNONCES ───────── */
 const announcements = []; /* rempli depuis Firestore (hydrate) */
 const messages = [];      /* messages réels : page Contact + espace élève */
+const myMessages = [];    /* réponses de la professeure adressées à l'élève connecté */
 
 /* ───────── AIDES ───────── */
 const byId = (arr,id)=> arr.find(x=>x.id===id);
@@ -116,5 +123,6 @@ const exercisesOf = lv => window.PKdata.exercises.filter(e=>e.level===lv);
 const schoolName = (k,lang)=> (window.PKi18n ? window.PKi18n.t(k,lang) : k);
 
 return {settings, levels, axes, lessons, exercises, groups, slots, days, students, me, announcements, messages,
+        users, progress, myMessages,
         byId, groupOf, slotAt, lessonsOf, exercisesOf, schoolName};
 })();

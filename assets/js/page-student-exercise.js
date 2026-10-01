@@ -43,7 +43,7 @@ function renderBrief(mn){
     </div>
   </div>
 
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main" style="align-items:start">
     <div class="qz rv">
       <div class="qz__hd">
         <div class="qz__meta">
@@ -167,7 +167,7 @@ function renderQuestion(mn){
           </div>
         </div>
         ${opts
-          ? `<div class="qn__x" ${opts.length<=2?'style="grid-template-columns:repeat(2,1fr)"':''}>
+          ? `<div class="qn__x" ${opts.length<=2?'':''}>
                ${opts.map(([i,label])=>`<button class="qo" data-i="${i}"><i>${'ABCD'[i]}</i><span dir="ltr">${label}</span></button>`).join('')}
              </div>`
           : `<div class="fld"><label>${L_('اكتب الإجابة','Écrivez la réponse')}</label>

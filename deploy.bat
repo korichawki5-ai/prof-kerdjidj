@@ -1,9 +1,10 @@
 @echo off
 chcp 65001 >nul
-REM ══════════════════════════════════════════════════════════
+REM ══════════════════════════════════════════════════════════════
 REM  نشر منصة الأستاذة كرجيج على Firebase — Windows
-REM  الاستعمال : نقر مزدوج، أو  deploy.bat  في موجه الأوامر
-REM ══════════════════════════════════════════════════
+REM  الاستعمال : نقر مزدوج على الملف، أو  deploy.bat  في موجه الأوامر
+REM  ⚠️ قبل التشغيل : خذ نسخة احتياطية (تنزيل الكود + تصدير Firestore)
+REM ══════════════════════════════════════════════════════════════
 cd /d "%~dp0"
 
 echo ══ 1/6 · التحقق من Node.js ══
@@ -24,18 +25,18 @@ echo [OK] المفاتيح موجودة
 echo ══ 4/6 · تسجيل الدخول ══
 call firebase login
 
-echo ══ 5/6 · ربط المشروع + رفع القواعد ══
-call firebase use --add
-call firebase deploy --only firestore:rules,firestore:indexes,storage
+echo ══ 5/6 · ربط المشروع + رفع القواعد والفهارس ══
+if exist .firebaserc (call firebase use default) else (call firebase use --add)
+call firebase deploy --only firestore:rules,firestore:indexes
 
 echo ══ 6/6 · نشر الموقع ══
 call firebase deploy --only hosting
 
 echo.
-echo [OK] تم النشر 🎉  - الرابط ظهر أعلاه بصيغة https://XXXX.web.app
+echo ✅ تم النشر بنجاح
+echo    الموقع : https://prof-kerdjidj.web.app
+echo    اللوحة : https://prof-kerdjidj.web.app/admin/index.html
 echo.
-echo ⚠ تذكير إلزامي مرة واحدة:
-echo    Firestore ^> users ^> مستند جديد بمعرّف uid الخاص بالأستاذة
-echo    الحقل:  role = "admin"
-echo.
+echo تذكير: افتح الموقع وتأكد أن الدروس تظهر، وأن دخول الأستاذة يعمل
+echo         ثم راجع قائمة التحقق في README-NASHR.md
 pause

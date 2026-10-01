@@ -1,0 +1,10 @@
+# منصة الأستاذة كرجيج — تسمح للزوار بالفهرسة الكاملة للمحتوى العام
+User-agent: *
+Allow: /
+Disallow: /student/
+Disallow: /admin/
+Disallow: /assets/js/
+Disallow: /firestore.rules
+Disallow: /firebase.json
+
+Sitemap: https://prof-kerdjidj.web.app/sitemap.xml

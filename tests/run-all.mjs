@@ -200,12 +200,30 @@ sec("3 · Porte d'entrée : sans compte → connexion ; sans niveau → choix 1A
   const g = await boot("student/index.html", { seed: seedNoLevel });
   await wait(520);
   const hg = helpers(g.dom);
-  ck("Porte de niveau : 4 boutons", hg.qa("[data-level]").length === 4, hg.qa("[data-level]").map(b => b.dataset.level).join(","));
-  hg.click(hg.q('[data-level="3AM"]')); await wait(420);
+  ck("Formulaire d'inscription : 4 niveaux", hg.qa("[data-level]").length === 4, hg.qa("[data-level]").map(b => b.dataset.level).join(","));
+  ck("Formulaire d'inscription : 3 intérêts", hg.qa("[data-interest]").length === 3);
+  hg.click(hg.q('[data-level="3AM"]')); await wait(140);
+  hg.click(hg.q('[data-interest="private"]')); await wait(140);
+  hg.setVal("#onboardName", "تلميذ تجريبي"); await wait(120);
+  hg.click(hg.q("[data-onboard-submit]")); await wait(520);
   ck("Niveau enregistré dans le profil", g.dom.window.PKdata.me.level === "3AM", "level=" + g.dom.window.PKdata.me.level);
-  ck("Espace rendu après choix", !!hg.q(".kpi, .kpis"), hg.qa(".kpi").length + " KPI");
+  ck("Centres d'intérêt enregistrés", JSON.stringify(g.dom.window.PKdata.me.interests) === '["private"]', JSON.stringify(g.dom.window.PKdata.me.interests));
+  ck("Espace rendu après inscription", !!hg.q(".kpi, .kpis"), hg.qa(".kpi").length + " KPI");
   ck("Aucune erreur (porte niveau)", g.errs.length === 0, g.errs[0] || "");
   g.dom.window.close();
+
+  /* la porte explique les deux chemins : se connecter / créer un compte */
+  const a = await boot("student/index.html");
+  await wait(420);
+  const ha = helpers(a.dom);
+  ck("Deux onglets d'entrée (compte / connexion)", ha.qa("[data-auth-tab]").length === 2);
+  ck("Bouton Google présent", !!ha.q("[data-gate-google]"));
+  ck("Mot de passe oublié présent", !!ha.q("[data-gate-forgot]"));
+  ck("Formulaire de connexion visible par défaut", !ha.q("#authSigninForm").classList.contains("hide") && ha.q("#authSignupForm").classList.contains("hide"));
+  ha.click(ha.q('[data-auth-tab="signup"]')); await wait(150);
+  ck("Bascule vers la création de compte", !ha.q("#authSignupForm").classList.contains("hide"));
+  ck("Aucune erreur (porte connexion)", a.errs.length === 0, a.errs[0] || "");
+  a.dom.window.close();
 }
 
 /* ═══════════ 4. FILTRAGE PAR NIVEAU ═══════════ */
@@ -274,7 +292,13 @@ sec("6 · Panneau d'administration — 11 modules sur données semées");
   const MODS = [
     ["overview", "Vue d'ensemble", () => [["8 KPI", h.qa(".kpi").length === 8], ["5 barres XP réelles", h.qa(".bars__b").length === 5], ["Top élèves semés", h.qa(".tb tbody tr").length >= 3], ["Flux = messages réels", h.qa(".feed .fd").length >= 1]]],
     ["tt", "Emploi du temps", () => [["Créneaux", h.qa(".tteg .hr").length === 5], ["2 séances semées", h.qa(".blk").length >= 2]]],
-    ["students", "Élèves", () => [["3 élèves semés", h.qa("#stuTable tbody tr").length === 3], ["Formulaire d'ajout", h.qa(".fld").length >= 2]]],
+    ["students", "Élèves", () => [["3 élèves semés", h.qa("#stuTable tbody tr").length === 3],
+      ["Bouton d'ajout d'élève", !!h.q("[data-add-student]")],
+      ["Formulaire réel (modal)", (() => { h.click(h.q("[data-add-student]"));
+        const okk = h.qa(".mdl .fld").length >= 3 && !!h.q("[data-save-student]");
+        const c = h.q(".mdl [data-close]"); if (c) h.click(c); return okk; })()],
+      ["Import CSV disponible", !!h.q("#stuCsv")],
+      ["Carte des comptes non reliés", !!h.q("#linkCard")]]],
     ["groups", "Groupes", () => [["2 groupes + carte d'ajout", h.qa(".grp").length >= 2], ["École affichée", /CEM|متوسطة/.test(h.document.body.textContent)]]],
     ["quiz", "Constructeur de quiz", () => [["Formulaire", h.qa(".fld").length >= 6], ["Bouton enregistrer", !!h.q("[data-save-quiz]")]]],
     ["bank", "Banque de questions", () => [["8 questions semées", h.qa(".tb tbody tr").length >= 8]]],
@@ -307,6 +331,59 @@ sec("6 · Panneau d'administration — 11 modules sur données semées");
   h.click(h.q("[data-send]")); await wait(420);
   ck("Réponse ajoutée aux messages réels", dom.window.PKdata.messages.some(m => m.body === "ردّ تجريبي من الأستاذة"));
   ck("Aucune erreur JS (admin)", errs.length === 0, errs[0] || "");
+  dom.window.close();
+}
+
+/* ═══════════ 6c. ÉCRITURES RÉELLES DEPUIS LE PANNEAU ═══════════ */
+sec("6c · Enregistrements réels : annonce · élève · groupe VIP · message");
+{
+  const { dom, errs } = await boot("admin/index.html", { seed: SEED });
+  await wait(760);
+  const h = helpers(dom);
+  const W = dom.window;
+
+  /* — annonce — */
+  h.click(h.q('[data-atab="announce"]')); await wait(320);
+  const annBefore = W.PKdata.announcements.length;
+  h.setVal("#annTitleAr", "إعلان من الاختبار"); h.setVal("#annBody", "نص الإعلان التجريبي بالعربية.");
+  h.click(h.q("[data-send-ann]")); await wait(420);
+  ck("Annonce publiée (écriture)", W.PKdata.announcements.length === annBefore + 1, W.PKdata.announcements.length + " annonces");
+  ck("Champs AR/FR + épinglage enregistrés", (() => { const a = W.PKdata.announcements[W.PKdata.announcements.length-1];
+    return a && a.titleAr === "إعلان من الاختبار" && a.bodyAr && typeof a.pinned === "boolean" && !!a.date; })());
+
+  /* — élève — */
+  h.click(h.q('[data-atab="students"]')); await wait(320);
+  const stBefore = W.PKdata.students.length;
+  h.click(h.q("[data-add-student]")); await wait(260);
+  ck("Formulaire élève ouvert", !!h.q("#stAr"));
+  h.setVal("#stAr", "تلميذ جديد"); h.setVal("#stFr", "Nouvel Élève");
+  h.click(h.q("[data-save-student]")); await wait(420);
+  ck("Élève enregistré (écriture)", W.PKdata.students.length === stBefore + 1, W.PKdata.students.length + " élèves");
+
+  /* — groupe VIP — */
+  W.location.hash = "#groups"; h.click(h.q('[data-atab="groups"]')); await wait(340);
+  const grBefore = W.PKdata.groups.length;
+  h.click(h.q("[data-add-group]")); await wait(280);
+  ck("Formulaire de séance ouvert", !!h.q("#gpVis"));
+  h.setVal("#gpName", "4AM VIP"); h.setVal("#gpCap", "4");
+  const visSel = h.q("#gpVis"); visSel.value = "vip"; visSel.dispatchEvent(new W.Event("change", { bubbles: true }));
+  await wait(160);
+  ck("Champ VIP affiché", !h.q("#gpVipBox").classList.contains("hide"));
+  const vip = h.q("#gpVipUids"); if (vip && vip.options.length) vip.options[0].selected = true;
+  h.click(h.q("[data-save-group]")); await wait(420);
+  const created = W.PKdata.groups[W.PKdata.groups.length-1];
+  ck("Séance enregistrée (écriture)", W.PKdata.groups.length === grBefore + 1, W.PKdata.groups.length + " séances");
+  ck("Séance marquée VIP + élèves choisis", created && created.vis === "vip" && Array.isArray(created.vipUids), created ? (created.vis + " / " + (created.vipUids||[]).length) : "aucune");
+
+  /* — réponse au message avec destinataire — */
+  h.click(h.q('[data-atab="messages"]')); await wait(340);
+  const msgBefore = (W.PKdata.messages || []).length;
+  const ta = h.q(".msgc textarea"); if (ta) ta.value = "ردّ الاختبار";
+  h.click(h.q("[data-send]")); await wait(460);
+  ck("Réponse enregistrée", (W.PKdata.messages || []).length === msgBefore + 1);
+  const rep = (W.PKdata.messages || [])[msgBefore];
+  ck("Réponse adressée à un destinataire", !!rep && "to" in rep);
+  ck("Aucune erreur JS (écritures)", errs.length === 0, errs[0] || "");
   dom.window.close();
 }
 
@@ -367,6 +444,55 @@ sec("8 · Hygiène des sources — aucune donnée fictive expédiée");
   ck("Aucune identité fictive (سارة/Sara Rahmani)", !/سارة رحماني|Sara Rahmani/.test(src("03-data.js") + src("page-admin.js") + src("04-firebase.js")));
   ck("Aucune simulation de connexion", !/sara\.rahmani@gmail\.com/.test(src("04-firebase.js")));
   ck("firebase.json sans storage (Blaze payant)", !/"storage"/.test(fs.readFileSync(path.join(ROOT, "firebase.json"), "utf8")));
+}
+
+/* ═══════════ 9. COHÉRENCE CODE ⇄ RÈGLES FIRESTORE ═══════════
+   Chaque collection utilisée par le site doit avoir sa règle : c'est ce
+   contrôle qui aurait évité le bug « XP non enregistré » (progress).  */
+sec("9 · Cohérence entre le code et firestore.rules");
+{
+  const rules = fs.readFileSync(path.join(ROOT, "firestore.rules"), "utf8");
+  const js = ["04-firebase.js","page-admin.js","page-public.js","page-student.js","page-student-home.js","page-student-exercise.js"]
+    .map(f => fs.readFileSync(path.join(ROOT, "assets/js", f), "utf8")).join("\n");
+  const used = new Set();
+  for (const m of js.matchAll(/PKdb\.(?:add|set|remove|col|docGet)\(\s*'([a-zA-Z]+)'/g)) used.add(m[1]);
+  for (const m of js.matchAll(/ff\.(?:collection|doc)\(\s*db\s*,\s*'([a-zA-Z]+)'/g)) used.add(m[1]);
+  const declared = new Set();
+  for (const m of rules.matchAll(/match \/([a-zA-Z]+)\//g)) declared.add(m[1]);
+  ck("Collections utilisées par le code", used.size >= 8, [...used].join(", "));
+  const missing = [...used].filter(c => !declared.has(c));
+  ck("Aucune collection utilisée sans règle", missing.length === 0, missing.join(", "));
+  ck("Règle attrape-tout présente (refus par défaut)", /match \/\{document=\*\*\} \{ allow read, write: if false; \}/.test(rules));
+  ck("Aucun « allow read, write: if true »", !/allow\s+read\s*,\s*write\s*:\s*if\s+true/.test(rules));
+  ck("Formulaire de contact encadré (role == 'contact')", /contactForm\(\)/.test(rules) && /role == 'contact'/.test(rules));
+  ck("Séances VIP dans les règles", /vipUids/.test(rules) && /vis/.test(rules));
+  ck("Role admin non auto-attribuable", /resource\.data\.role == 'pending' && request\.resource\.data\.role == 'student'/.test(rules));
+  ck("lessonsDone déclarée", declared.has("lessonsDone"));
+  ck("progress déclarée", declared.has("progress"));
+  ck("submissions déclarée", declared.has("submissions"));
+  const fbjson = fs.readFileSync(path.join(ROOT, "firebase.json"), "utf8");
+  ck("firestore.rules exclues du déploiement public", /firestore\.rules/.test(fbjson) && fbjson.includes('"ignore"'));
+  ck("Headers de sécurité (nosniff)", /X-Content-Type-Options/.test(fbjson));
+  ck(".firebaserc pointe le bon projet", /prof-kerdjidj/.test(fs.readFileSync(path.join(ROOT, ".firebaserc"), "utf8")));
+  ck("robots.txt présent + sitemap", fs.existsSync(path.join(ROOT,"robots.txt")) && /Sitemap:/.test(fs.readFileSync(path.join(ROOT,"robots.txt"),"utf8")));
+  ck("sitemap.xml valide (8 URL)", (fs.readFileSync(path.join(ROOT,"sitemap.xml"),"utf8").match(/<url>/g)||[]).length === 8);
+  ck("Image de partage présente", fs.existsSync(path.join(ROOT,"assets/img/og-cover.png")));
+  ck("viewport-fit=cover sur toutes les pages", (() => {
+    const files = ["index.html","lessons.html","contact.html","student/index.html","admin/index.html","404.html"];
+    return files.every(f => fs.readFileSync(path.join(ROOT,f),"utf8").includes("viewport-fit=cover"));
+  })());
+  ck("Aucun style inline grid-template-columns (media queries respectées)", (() => {
+    const files = fs.readdirSync(path.join(ROOT,"assets/js")).filter(f=>f.startsWith("page-"));
+    return files.every(f => !/style="[^"]*grid-template-columns/.test(fs.readFileSync(path.join(ROOT,"assets/js",f),"utf8")));
+  })());
+  ck("Champs à 16px sur mobile (anti-zoom iOS)", /input,select,textarea\{font-size:16px\}/.test(fs.readFileSync(path.join(ROOT,"assets/css/07-responsive.css"),"utf8")));
+  ck("Écran admin = connexion seule (pas d'inscription)", (() => {
+    const shell = fs.readFileSync(path.join(ROOT,"assets/js/05-app-shell.js"), "utf8");
+    return /isAdm \? '' : `<div class="tabs gate__tabs">/.test(shell)
+        && /isAdm \? '' : `<form class="gate__form hide" id="authSignupForm"/.test(shell);
+  })());
+  ck("Panneau monté seulement après contrôle du rôle", /isDemo\(\) \|\| \(m && m\.role === 'admin'\)/.test(fs.readFileSync(path.join(ROOT,"assets/js/page-admin.js"),"utf8")));
+  ck("Écran admin pleine largeur (CSS)", /\.app--gate\{grid-template-columns:1fr\}/.test(fs.readFileSync(path.join(ROOT,"assets/css/05-app.css"),"utf8")));
 }
 
 console.log("\n\x1b[1m════ RÉSULTAT : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");

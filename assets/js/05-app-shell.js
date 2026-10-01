@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════════
    05-app-shell.js · Coquille des espaces connectés (élève + admin)
-   Barre latérale, en-tête d'app, garde de rôle
+   Barre latérale, en-tête d'app, porte d'entrée (connexion / inscription)
    ══════════════════════════════════════════════════════════════════ */
 (function(){
 "use strict";
@@ -16,7 +16,7 @@ const STUDENT_NAV = [
   {g:'sbTrack', items:[
     {k:'sbProg',    href:'progress.html',      icon:'trend'},
     {k:'sbTt',      href:'timetable.html',     icon:'cal'},
-    {k:'sbAnn',     href:'announcements.html', icon:'bell', cnt:2},
+    {k:'sbAnn',     href:'announcements.html', icon:'bell',   cnt:2},
     {k:'sbProfile', href:'profile.html',       icon:'user'},
   ]}
 ];
@@ -83,9 +83,9 @@ function sidebar(role, active){
         <span class="av" style="background:${me.col}">${me.ini}</span>
         <div style="min-width:0"><b><span class="ar">${me.ar}</span><span class="fr">${me.fr}</span></b><small>${me.sub}</small></div>
       </div>
-      <a class="sb__l mt3" href="${isAdm?'../index.html':'../index.html'}" style="color:var(--er)">
+      <button type="button" class="sb__l sb__out" data-logout>
         ${svg('logout')}<span data-i18n="sbOut">${t('sbOut')}</span>
-      </a>
+      </button>
     </div>
   </aside>`;
 }
@@ -117,6 +117,8 @@ function bindDelegated(){
     const lang = e.target.closest('.lgsw button[data-lang]');
     if(lang){ window.PK.setLang(lang.dataset.lang); return; }
     if(e.target.closest('[data-theme-btn]')){ window.PK.toggleTheme(); return; }
+    const out = e.target.closest('[data-logout]');
+    if(out){ e.preventDefault(); doLogout(); return; }
     const tab = e.target.closest('[data-atab]');
     if(tab){
       const scope = tab.closest('.tabs');
@@ -126,6 +128,12 @@ function bindDelegated(){
       if(pn){ pn.classList.remove('lpn'); void pn.offsetWidth; pn.classList.add('lpn'); window.PK.replayFx(pn); window.PK.initReveal(pn); }
     }
   });
+}
+/** Déconnexion réelle puis retour à l'accueil public. */
+async function doLogout(){
+  try{ await window.PKdb.logout(); }catch(e){}
+  toast(window.PKi18n.t('sbOut')+' ✓','info',1600);
+  setTimeout(()=>{ location.href = location.pathname.indexOf('/admin/')>=0 || location.pathname.indexOf('/student/')>=0 ? '../index.html' : 'index.html'; }, 500);
 }
 
 /* ───────── MONTAGE ───────── */
@@ -140,34 +148,173 @@ function mountApp(role, active, opts){
   return mn;
 }
 
-/* ───────── بوابة فضاء التلميذ: اتصال Google ثم اختيار المستوى ─────────
-   لا محتوى افتراضي: بدون دخول ← بطاقة اتصال؛ بدخول بلا مستوى ← بوابة
-   اختيار السنة (1AM→4AM) تُحفظ في users/{uid} وتبقى طوال السنة.        */
+/* ══════════════════════════════════════════════════════════════════
+   PORTE D'ENTRÉE · deux usages :
+     · élève  → création de compte / connexion, puis niveau + intérêts
+     · admin  → une seule chose à l'écran : la connexion de la professeure
+   Aucun contenu de l'espace n'est monté tant que l'identité n'est pas
+   vérifiée (le rôle admin est confirmé côté Firestore).
+   ══════════════════════════════════════════════════════════════════ */
+function notice(){
+  /* affiche l'avertissement « non connecté » uniquement en mode démo */
+  const off = !window.PKdb || window.PKdb.mock || window.PKdb.failed;
+  return off ? `<p class="gate__s" data-i18n="notConnected">${t('notConnected')}</p>` : '';
+}
+function authErrorBox(){
+  return `<p class="gate__err hide" id="gateErr" role="alert"></p>`;
+}
+/** Écran de connexion / création de compte. */
+function loginScreen(role){
+  const isAdm = role === 'admin';
+  const title = isAdm ? t('adminLoginTitle') : t('authTitle');
+  const sub   = isAdm ? t('adminLoginSub')   : t('authSub');
+  return `<section class="gate"><div class="gate__c gate__c--wide">
+    <span class="gate__ic">${svg(isAdm?'lock':'user','width="34" height="34"')}</span>
+    <h2>${title}</h2>
+    <p class="gate__s">${sub}</p>
+    ${isAdm ? '' : `<div class="tabs gate__tabs">
+      <button type="button" class="on" data-auth-tab="signin" data-gate-login>${t('authSigninTab')}</button>
+      <button type="button" data-auth-tab="signup">${t('authSignupTab')}</button>
+    </div>`}
+    <form class="gate__form" id="authSigninForm" novalidate>
+      <div class="fld"><label>${t('authEmail')}</label>
+        <input class="inp" type="email" name="email" dir="ltr" autocomplete="email" required></div>
+      <div class="fld"><label>${t('authPass')}</label>
+        <input class="inp" type="password" name="password" dir="ltr" autocomplete="current-password" required></div>
+      <button class="btn btn--p btn--blk btn--lg" type="submit">${t('authSubmit')}</button>
+      <button type="button" class="gate__lnk" data-gate-forgot>${t('authForgot')}</button>
+    </form>
+    ${isAdm ? '' : `<form class="gate__form hide" id="authSignupForm" novalidate>
+      <div class="fld"><label>${t('authName')}</label>
+        <input class="inp" type="text" name="name" autocomplete="name" placeholder="${t('authNamePh')}"></div>
+      <div class="fld"><label>${t('authEmail')}</label>
+        <input class="inp" type="email" name="email" dir="ltr" autocomplete="email" required></div>
+      <div class="fld"><label>${t('authPass')}</label>
+        <input class="inp" type="password" name="password" dir="ltr" autocomplete="new-password" required placeholder="${t('authPassPh')}"></div>
+      <button class="btn btn--p btn--blk btn--lg" type="submit">${t('authStart')}</button>
+    </form>`}
+    ${authErrorBox()}
+    <div class="gate__or"><i></i><span>${t('authOr')}</span><i></i></div>
+    <button type="button" class="btn btn--g btn--blk btn--lg" data-gate-google>${svg('users','width="18" height="18"')}${t('authGoogle')}</button>
+    ${notice()}
+  </div></section>`;
+}
+/** Écran « première fois » : nom + niveau + centres d'intérêt. */
+function onboardScreen(){
+  const D = window.PKdata, m = D.me || {};
+  const name = m.ar || m.fr || '';
+  return `<section class="gate"><div class="gate__c gate__c--wide">
+    <span class="gate__ic">${svg('spark','width="34" height="34"')}</span>
+    <h2>${t('onboardTitle')}</h2>
+    <p class="gate__s">${t('onboardSub')}</p>
+    <div class="fld"><label>${t('authName')}</label>
+      <input class="inp" id="onboardName" type="text" autocomplete="name" value="${name.replace(/"/g,'&quot;')}" placeholder="${t('authNamePh')}"></div>
+    <div class="fld mt4"><label>${t('chooseLevelTitle')}</label>
+      <div class="gate__lv">${D.levels.map(l=>`<button type="button" class="gate__b ${l.cls}" data-level="${l.id}"><b>${window.PKi18n.current()==='ar'?l.ar:l.fr}</b></button>`).join('')}</div>
+      <span class="help">${t('chooseLevelSub')}</span></div>
+    <div class="fld mt4"><label>${t('authInterests')}</label>
+      <div class="gate__chk">
+        ${[['group','intGroup'],['private','intPrivate'],['self','intSelf']].map(([v,k])=>`
+          <label class="chk"><input type="checkbox" data-interest="${v}"><span>${t(k)}</span></label>`).join('')}
+      </div></div>
+    ${authErrorBox()}
+    <button type="button" class="btn btn--p btn--blk btn--lg mt5" data-onboard-submit>${t('onboardGo')}</button>
+    <button type="button" class="gate__lnk" data-logout>${t('sbOut')}</button>
+  </div></section>`;
+}
+/** Écran « compte non autorisé » (panneau admin seulement). */
+function deniedScreen(){
+  const m = window.PKdata.me || {};
+  return `<section class="gate"><div class="gate__c">
+    <span class="gate__ic">${svg('lock','width="34" height="34"')}</span>
+    <h2>${t('notAuthorized')}</h2>
+    <p class="gate__s">${t('authSignedAs')||''} <b dir="ltr">${m.email||''}</b></p>
+    <button type="button" class="btn btn--g btn--blk" data-logout>${t('sbOut')}</button>
+  </div></section>`;
+}
+
 const PKgate = {
-  html(){
-    const D = window.PKdata, m = D.me, t = window.PKi18n.t, svg = window.PK.svg;
-    if(!m){
-      return `<section class="gate"><div class="gate__c">${svg('lock','width="36" height="36"')}
-        <h2>${t('loginNeeded')}</h2>
-        <button class="btn btn--p btn--lg" data-gate-login>${t('navLogin')} · Google</button>
-        <p class="gate__s">${t('notConnected')}</p></div></section>`;
-    }
-    if(!m.level && m.role !== 'admin'){
-      return `<section class="gate"><div class="gate__c">${svg('school','width="36" height="36"')}
-        <h2>${t('chooseLevelTitle')}</h2>
-        <p class="gate__s">${t('chooseLevelSub')}</p>
-        <div class="gate__lv">${D.levels.map(l=>`<button class="gate__b ${l.cls}" data-level="${l.id}"><b>${window.PKi18n.current()==='ar'?l.ar:l.fr}</b></button>`).join('')}</div>
-        </div></section>`;
-    }
+  html(opts){
+    opts = opts || {};
+    const D = window.PKdata, m = D.me;
+    if(!m) return loginScreen(opts.role);
+    if(opts.role === 'admin' && m.role !== 'admin') return deniedScreen();
+    /* un profil avec un niveau connu est considéré comme déjà inscrit */
+    const done = m.onboarded === true || !!m.level;
+    if(opts.role !== 'admin' && !done && m.role !== 'admin') return onboardScreen();
     return '';
   },
-  bind(mn, after){
-    const lg = mn.querySelector('[data-gate-login]');
-    if(lg) lg.addEventListener('click', ()=>{ window.PKdb.loginGoogle().catch(()=>{}); });
-    mn.querySelectorAll('[data-level]').forEach(b=> b.addEventListener('click', async ()=>{
-      const r = await window.PKdb.chooseLevel(b.dataset.level);
-      if(r && r.ok){ window.PK.toast(window.PKi18n.t('levelSaved'),'ok',2600); if(after) after(); }
+  bind(mn, after, opts){
+    opts = opts || {};
+    const after_ = ()=> { if(after) after(); };
+    bindDelegated();
+    /* onglets connexion / création */
+    $$('[data-auth-tab]', mn).forEach(b=> b.addEventListener('click', ()=>{
+      $$('[data-auth-tab]', mn).forEach(x=> x.classList.toggle('on', x===b));
+      const signin = $('#authSigninForm', mn), signup = $('#authSignupForm', mn);
+      if(signin && signup){
+        signin.classList.toggle('hide', b.dataset.authTab!=='signin');
+        signup.classList.toggle('hide', b.dataset.authTab!=='signup');
+      }
     }));
+    const err = (msg)=>{
+      const box = $('#gateErr', mn);
+      if(box){ box.textContent = msg || ''; box.classList.toggle('hide', !msg); }
+      if(msg) toast(msg, 'er', 5000);
+    };
+    /* connexion e-mail */
+    const f1 = $('#authSigninForm', mn);
+    if(f1) f1.addEventListener('submit', async e=>{
+      e.preventDefault();
+      const email = (f1.elements.email.value||'').trim(), pass = f1.elements.password.value||'';
+      if(!email || pass.length < 6){ err(t('requiredFields')); return; }
+      const b = f1.querySelector('button[type=submit]'); if(b) b.disabled = true;
+      const u = await window.PKdb.loginEmail(email, pass);
+      if(b) b.disabled = false;
+      if(u) after_();
+    });
+    /* création de compte */
+    const f2 = $('#authSignupForm', mn);
+    if(f2) f2.addEventListener('submit', async e=>{
+      e.preventDefault();
+      const name = (f2.elements.name.value||'').trim();
+      const email = (f2.elements.email.value||'').trim(), pass = f2.elements.password.value||'';
+      if(!name){ err(t('authErrorName')); return; }
+      if(!email || pass.length < 6){ err(t('requiredFields')); return; }
+      const b = f2.querySelector('button[type=submit]'); if(b) b.disabled = true;
+      const u = await window.PKdb.registerEmail(name, email, pass);
+      if(b) b.disabled = false;
+      if(u) after_();
+    });
+    /* Google */
+    const g = $('[data-gate-google]', mn);
+    if(g) g.addEventListener('click', async ()=>{ const u = await window.PKdb.loginGoogle(); if(u) after_(); });
+    /* mot de passe oublié */
+    const fg = $('[data-gate-forgot]', mn);
+    if(fg) fg.addEventListener('click', async ()=>{
+      const f = $('#authSigninForm', mn);
+      const email = f ? (f.elements.email.value||'').trim() : '';
+      if(!email){ err(t('requiredFields')); return; }
+      await window.PKdb.resetPassword(email);
+    });
+    /* inscription : niveau + intérêts + nom */
+    let level = (window.PKdata.me && window.PKdata.me.level) || null;
+    $$('[data-level]', mn).forEach(b=> b.addEventListener('click', ()=>{
+      level = b.dataset.level;
+      $$('[data-level]', mn).forEach(x=> x.classList.toggle('on', x===b));
+    }));
+    const sub = $('[data-onboard-submit]', mn);
+    if(sub) sub.addEventListener('click', async ()=>{
+      const name = ($('#onboardName', mn) || {}).value || '';
+      const interests = $$('[data-interest]', mn).filter(i=>i.checked).map(i=>i.dataset.interest);
+      if(!name.trim()){ err(t('authErrorName')); return; }
+      if(!level){ err(t('chooseLevelTitle')); return; }
+      sub.disabled = true;
+      const r = await window.PKdb.completeOnboarding({name, level, interests});
+      sub.disabled = false;
+      if(r && r.ok){ toast(t('onboardDone'), 'ok', 3200); after_(); }
+      else if(r && r.message) err(r.message);
+    });
   }
 };
 
@@ -178,7 +325,6 @@ function bootApp(role, active, opts, render){
     const mn = mountApp(role, active, opts);
     const doRender = (m)=>{ if(render) render(m||mn); replayFx(m||mn); initReveal(m||mn); };
     document.addEventListener('pk:lang', ()=>{
-      // reconstruit la coquille puis le contenu dans la nouvelle langue
       const host = $('#app');
       host.innerHTML = sidebar(role, active) + `<main class="mn" id="mn"></main>`;
       const mn2 = $('#mn');
@@ -197,5 +343,5 @@ function bootApp(role, active, opts, render){
   });
 }
 
-window.PKapp = {sidebar, appTop, mountApp, bootApp, bindDelegated, isOn, STUDENT_NAV, ADMIN_NAV, PKgate};
+window.PKapp = {sidebar, appTop, mountApp, bootApp, bindDelegated, isOn, STUDENT_NAV, ADMIN_NAV, PKgate, doLogout, loginScreen, onboardScreen, deniedScreen};
 })();
