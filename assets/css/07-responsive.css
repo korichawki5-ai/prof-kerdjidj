@@ -17,6 +17,7 @@
 }
 @media (max-width:1024px){
   .app{grid-template-columns:1fr}
+  .app--gate .sb{display:none}
   .sb{position:static;height:auto;flex-direction:row;overflow-x:auto;gap:8px;padding:12px;
     border-inline-end:0;border-block-end:1px solid var(--line);scrollbar-width:none}
   .sb::-webkit-scrollbar{display:none}
@@ -33,18 +34,23 @@
 @media (max-width:760px){
   :root{--hdh:68px;--r4:22px;--r5:28px;
         /* rythme vertical mobile : moins de vide entre les blocs */
-        --sp5:18px;--sp6:24px;--sp7:32px;--sp8:44px;--sp9:64px}
+        --sp5:16px;--sp6:20px;--sp7:24px;--sp8:32px;--sp9:44px}
   body{font-size:15.5px}
   .g2,.g3,.g4,.g5,.g6,.kpis,.sts,.lvs,.axs,.ft__g,.qn__x,.bento{grid-template-columns:1fr}
   .sts{margin-block-start:-28px}
   .st{border-inline-end:0}
   .bx--lesson,.bx--quiz,.bx--notes,.bx--att{grid-column:span 1;grid-row:auto}
   .bx--quiz{min-height:280px}
-  .mn{padding:20px 16px 36px}
+  .mn{padding:18px 16px 34px}
   .cd{padding:18px;border-radius:var(--r3)}
-  .sec{padding-block:44px}
-  .mn__t{margin-block-end:18px}
-  .g{gap:18px}
+  .sec{padding-block:30px}
+  .sh{margin-block-end:20px}
+  .hero{padding-block:34px 44px}
+  .hero__ttl{margin-block-end:14px}
+  .ft{padding-block:44px 0}
+  .cta{padding:26px 20px}
+  .mn__t{margin-block-end:16px}
+  .g{gap:16px}
   .top__l .top__it:nth-child(n+3){display:none}
   .waf{width:54px;height:54px;inset-block-end:20px;inset-inline-end:18px}
   .totop{display:none}
@@ -133,6 +139,21 @@
   /* la carte de connexion respire moins */
   .gate__c{padding:30px 20px}
   .gate__lv{grid-template-columns:1fr 1fr}
+  /* la porte s'affiche en haut : plus besoin de dérouler pour voir les niveaux */
+  .gate{min-height:auto;place-items:start center;padding:4px 14px 18px}
+  .gate__c{padding:22px 16px;border-radius:18px}
+  .gate__ic{width:50px;height:50px;border-radius:15px}
+  .gate__c h2{font-size:1.2rem;margin:10px 0 4px}
+  .gate__s{margin-top:8px;font-size:.86rem;line-height:1.7}
+  .gate__tabs{margin:14px 0 14px}
+  .gate__form{gap:11px}
+  .gate__lv{gap:9px;margin-top:12px}
+  .gate__b{padding:12px 8px;border-radius:13px}
+  .gate__b b{font-size:.95rem}
+  .gate__or{margin:13px 0}
+  .btn--lg{padding:13px 20px}
+  /* dans la porte, la barre latérale n'a rien à faire : elle pousse le formulaire hors écran */
+  .app--gate .sb{display:none}
 }
 @media (max-width:560px){
   .gate__tabs{grid-template-columns:1fr}

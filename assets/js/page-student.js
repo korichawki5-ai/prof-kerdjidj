@@ -660,7 +660,8 @@ function render(mn){
   const page = document.documentElement.dataset.page || 'student-lessons';
   const cfg = PAGES[page] || PAGES['student-lessons'];
   const gt = window.PKapp.PKgate.html();
-  if(gt){ mn.innerHTML = gt; window.PKapp.PKgate.bind(mn, ()=>render(mn)); return; }
+  if(gt){ window.PKapp.gateMode(true); mn.innerHTML = gt; window.PKapp.PKgate.bind(mn, ()=>render(mn)); return; }
+  window.PKapp.gateMode(false);
   mn.innerHTML = cfg.fn();
   if(cfg.bind) cfg.bind(mn);
   // chrome de la barre de titre

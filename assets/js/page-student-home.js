@@ -24,7 +24,8 @@ function hash(str){ let h=2166136261; for(let i=0;i<str.length;i++){ h^=str.char
 function render(mn){
   L = window.PKi18n.current();
   const gt = window.PKapp.PKgate.html();
-  if(gt){ mn.innerHTML = gt; window.PKapp.PKgate.bind(mn, ()=>render(mn)); return; }
+  if(gt){ window.PKapp.gateMode(true); mn.innerHTML = gt; window.PKapp.PKgate.bind(mn, ()=>render(mn)); return; }
+  window.PKapp.gateMode(false);
   const s = D.me, sum = X.summarize(s);
   const grp = D.groupOf(s.group) || {};
 

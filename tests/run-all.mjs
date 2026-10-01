@@ -545,8 +545,33 @@ sec("9 · Cohérence entre le code et firestore.rules");
 
   /* ── Rythme vertical mobile resserré ── */
   const resp = fs.readFileSync(path.join(ROOT,"assets/css/07-responsive.css"), "utf8");
-  ck("Espacement mobile resserré (tokens)", /--sp5:18px;--sp6:24px;--sp7:32px/.test(resp));
-  ck("Sections mobiles moins hautes", /\.sec\{padding-block:44px\}/.test(resp));
+  ck("Espacement mobile resserré (tokens)", /--sp5:16px;--sp6:20px;--sp7:24px/.test(resp));
+  ck("Sections mobiles moins hautes", /\.sec\{padding-block:30px\}/.test(resp) && /\.sh\{margin-block-end:20px\}/.test(resp));
+  ck("Hero et pied de page resserrés sur mobile", /\.hero\{padding-block:34px 44px\}/.test(resp) && /\.ft\{padding-block:44px 0\}/.test(resp));
+  ck("Porte d'entrée alignée en haut sur mobile (pas de défilement)", /\.gate\{min-height:auto;place-items:start center/.test(resp));
+  ck("Barre latérale masquée dans la porte", (resp.match(/\.app--gate \.sb\{display:none\}/g) || []).length >= 2);
+  ck("Retour au site public depuis la porte", (() => {
+    const sh = fs.readFileSync(path.join(ROOT,"assets/js/05-app-shell.js"),"utf8");
+    return (sh.match(/href="\/index\.html">\$\{svg\('arrow'/g) || []).length >= 2 && sh.includes("t('viewPublic')");
+  })());
+  ck("Mode porte appliqué par le shell (gateMode)", /function gateMode\(on\)/.test(shell) && /gateMode, STUDENT_NAV/.test(shell));
+  ck("Pages élève : mode porte activé/désactivé", ["page-student.js","page-student-home.js","page-student-exercise.js"].every(f => {
+    const src = fs.readFileSync(path.join(ROOT,"assets/js",f), "utf8");
+    return src.includes("window.PKapp.gateMode(true)") && src.includes("window.PKapp.gateMode(false)");
+  }));
+}
+
+/* ═══════════ 10. PORTE ÉLÈVE SUR MOBILE : aucun défilement pour s'inscrire ═══════════ */
+sec("10 · Porte élève : mode porte appliqué au chargement (sans compte)");
+{
+  const { dom, errs } = await boot("student/index.html");
+  await wait(520);
+  const host = dom.window.document.getElementById("app");
+  ck("Barre latérale neutralisée dès la porte", !!host && host.classList.contains("app--gate"));
+  const h = helpers(dom);
+  ck("Formulaire de connexion visible sans défiler", !!h.q(".gate [data-gate-login]") && !!h.q("[data-gate-google]"));
+  ck("Aucune erreur JS (porte mobile)", errs.length === 0, errs[0] || "");
+  dom.window.close();
 }
 
 console.log("\n\x1b[1m════ RÉSULTAT : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");

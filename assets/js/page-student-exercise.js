@@ -25,7 +25,8 @@ function getExercise(){
 /* ══════════ ÉCRAN 1 : BRIEFING ══════════ */
 function renderBrief(mn){
   const gt = window.PKapp.PKgate.html();
-  if(gt){ mn.innerHTML = gt; window.PKapp.PKgate.bind(mn, ()=>renderBrief(mn)); return; }
+  if(gt){ window.PKapp.gateMode(true); mn.innerHTML = gt; window.PKapp.PKgate.bind(mn, ()=>renderBrief(mn)); return; }
+  window.PKapp.gateMode(false);
   if(!D.exercises.length){ mn.innerHTML = `<div class="empty"><div class="ico">${svg('quiz')}</div><b>${t('noExercises')}</b></div>`; syncTop(mn); return; }
   EX = getExercise();
   const lv = D.byId(D.levels, EX.level), ax = D.axes.find(a=>a.id===EX.ax)||{fr:EX.ax,ar:EX.ax};

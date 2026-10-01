@@ -199,6 +199,7 @@ function loginScreen(role){
     <div class="gate__or"><i></i><span>${t('authOr')}</span><i></i></div>
     <button type="button" class="btn btn--g btn--blk btn--lg" data-gate-google>${svg('users','width="18" height="18"')}${t('authGoogle')}</button>
     ${notice()}
+    <a class="gate__lnk" href="/index.html">${svg('arrow','width="14" height="14"')} ${t('viewPublic')}</a>
   </div></section>`;
 }
 /** Écran « première fois » : nom + niveau + centres d'intérêt. */
@@ -222,6 +223,7 @@ function onboardScreen(){
     ${authErrorBox()}
     <button type="button" class="btn btn--p btn--blk btn--lg mt5" data-onboard-submit>${t('onboardGo')}</button>
     <button type="button" class="gate__lnk" data-logout>${t('sbOut')}</button>
+    <a class="gate__lnk" href="/index.html">${svg('arrow','width="14" height="14"')} ${t('viewPublic')}</a>
   </div></section>`;
 }
 /** Écran « compte non autorisé » (panneau admin seulement). */
@@ -320,6 +322,12 @@ const PKgate = {
   }
 };
 
+/** Bascule le chrome en mode « porte » : la barre latérale disparaît
+    (elle n'a aucun sens avant connexion et poussait le formulaire hors écran). */
+function gateMode(on){
+  const host = document.getElementById('app');
+  if(host) host.classList.toggle('app--gate', !!on);
+}
 /* ───────── AMORÇAGE D'UNE PAGE D'APP ───────── */
 function bootApp(role, active, opts, render){
   document.addEventListener('DOMContentLoaded', ()=>{
@@ -345,5 +353,5 @@ function bootApp(role, active, opts, render){
   });
 }
 
-window.PKapp = {sidebar, appTop, mountApp, bootApp, bindDelegated, isOn, STUDENT_NAV, ADMIN_NAV, PKgate, doLogout, loginScreen, onboardScreen, deniedScreen};
+window.PKapp = {sidebar, appTop, mountApp, bootApp, bindDelegated, isOn, gateMode, STUDENT_NAV, ADMIN_NAV, PKgate, doLogout, loginScreen, onboardScreen, deniedScreen};
 })();
