@@ -230,8 +230,8 @@ function render(mn){
         <div class="cd__h" style="margin-block-end:16px"><div class="cd__t" data-i18n="myProg">${t('myProg')}</div>
           <span class="bd bd--ok la">${sum.globalMastery}%</span></div>
         <div class="g gap4">
-          ${Object.keys(s.mastery).slice(0,6).map(k=>{
-            const v=s.mastery[k], m=X.masteryLabel(v,L);
+          ${Object.keys(sum.mastery).slice(0,6).map(k=>{
+            const v=sum.mastery[k], m=X.masteryLabel(v,L);
             const cls = v>=85?'prg--ok':v>=65?'':v>=40?'prg--wn':'prg--er';
             return `<div>
               <div class="flex just-b" style="font-size:.84rem;margin-block-end:6px">

@@ -349,8 +349,30 @@ function bootApp(role, active, opts, render){
       const b = box.querySelector('[data-retry]');
       if(b) b.addEventListener('click', ()=> location.reload());
     };
+    /* Normalisation défensive : quelle que soit la façon dont D.me a été
+       rempli (inscription, connexion, cache, mode démo), les pages peuvent
+       compter sur ces champs. Sans cela une page restait blanche. */
+    const normalizeMe = ()=>{
+      const D = window.PKdata;
+      if(!D || !D.me) return;
+      const m = D.me;
+      if(!m.mastery || typeof m.mastery !== 'object' || Array.isArray(m.mastery)) m.mastery = {};
+      if(!Array.isArray(m.badges))    m.badges = [];
+      if(!Array.isArray(m.doneIds))   m.doneIds = [];
+      if(!Array.isArray(m.interests)) m.interests = [];
+      if(typeof m.xp !== 'number')        m.xp = 0;
+      if(typeof m.streak !== 'number')    m.streak = 0;
+      if(typeof m.best !== 'number')      m.best = 0;
+      if(typeof m.lessonsDone !== 'number') m.lessonsDone = 0;
+      if(typeof m.exDone !== 'number')    m.exDone = 0;
+      if(typeof m.quizDone !== 'number')  m.quizDone = 0;
+      if(typeof m.correct !== 'number')   m.correct = 0;
+      if(typeof m.answered !== 'number')  m.answered = 0;
+      if(typeof m.minutes !== 'number')   m.minutes = 0;
+    };
     const doRender = (m)=> {
       const box = m||mn;
+      normalizeMe();
       try{
         if(render) render(box);
         replayFx(box); initReveal(box);

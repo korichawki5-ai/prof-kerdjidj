@@ -102,7 +102,7 @@ function renderBrief(mn){
       <div class="cd rv" style="--d:140ms">
         <div class="cd__t mb4" style="font-size:.98rem">${t('myProg')}</div>
         <div class="g gap4">
-          ${Object.entries(D.me.mastery).slice(0,4).map(([k,v])=>`
+          ${Object.entries(D.me.mastery||{}).slice(0,4).map(([k,v])=>`
             <div><div class="flex just-b" style="font-size:.82rem;margin-block-end:5px">
               <b class="la">${AXFR[k]||k}</b><span class="muted la">${v}%</span></div>
               <div class="prg prg--sm ${v>=85?'prg--ok':v>=40?'':'prg--er'}"><i data-w="${v}%" style="width:${v}%"></i></div></div>`).join('')}
@@ -257,7 +257,7 @@ function finish(mn){
   const col = pct>=80?'var(--ok)':pct>=50?'var(--wn)':'var(--er)';
 
   // progression de maîtrise simulée pour la démo
-  const before = D.me.mastery[EX.ax] || 0;
+  const before = (D.me.mastery||{})[EX.ax] || 0;
   const after  = Math.min(100, Math.round(before + (pct-before)*0.12));
 
   mn.innerHTML = `

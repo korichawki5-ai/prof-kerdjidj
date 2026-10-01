@@ -748,7 +748,67 @@ sec("14 · Garde-fous : plus jamais de page blanche");
   ck("Filet de rendu côté coquille (renderFallback)", /const renderFallback = \(box, e\)=>/.test(shell3));
   ck("Écouteur d'erreurs globales", /window\.addEventListener\('error'/.test(shell3));
   ck("Filet de rendu côté panneau admin (renderInner)", /function renderInner\(mn\)\{/.test(admin3) && /try\{ return renderInner\(mn\); \}/.test(admin3));
+  ck("Champs du profil normalisés avant chaque rendu (normalizeMe)", /const normalizeMe = \(\)=>/.test(shell3) && /m\.mastery = \{\}/.test(shell3));
+  ck("Aucune lecture directe de me.mastery sans garde",
+     !/Object\.(keys|entries)\(D\.me\.mastery\)/.test(R("assets/js/page-student-exercise.js") + R("assets/js/page-student-home.js")));
   ck("Textes d'erreur traduits (AR/FR)", /errTitle:/.test(R("assets/js/00-i18n.js")) && /errReload:/.test(R("assets/js/00-i18n.js")));
+}
+
+/* ═══════════ 15. INSCRIPTION ÉLÈVE : le parcours complet ═══════════
+   Verrouille le scénario qui bloquait l'inscription : un document
+   users/{uid} INCOMPLET (sans level / interests / onboarded, ou sans
+   role) ne doit JAMAIS empêcher l'écran « niveau + intérêts ». */
+sec("15 · Inscription élève : écran de création, puis niveau + intérêts");
+{
+  /* a) un élève déjà connecté avec un profil partiel → écran d'accueil d'inscription */
+  const partial = { uid:"uP", id:"uP", email:"eleve@test.dz", role:"pending" };  /* ni nom, ni niveau, ni intérêts */
+  const seedP = JSON.parse(JSON.stringify(SEED)); seedP.me = partial;
+  const p1 = await boot("student/index.html", { seed: seedP });
+  await wait(700);
+  const h1 = helpers(p1.dom);
+  ck("Profil partiel : l'écran d'inscription s'affiche", !!h1.q("[data-onboard-submit]") || !!h1.q("#authSignupForm"));
+  const hasLv = h1.qa("[data-level]").length;
+  const hasInt = h1.qa("[data-interest]").length;
+  if (h1.q("[data-onboard-submit]")) {
+    ck("Les niveaux sont proposés", hasLv >= 4, hasLv + " niveaux");
+    ck("Les centres d'intérêt sont proposés", hasInt >= 3, hasInt + " intérêts");
+    ck("Le champ « nom » est présent", !!h1.q("#onboardName"));
+    /* l'élève remplit et valide : le bouton ne doit pas rester bloqué */
+    h1.setVal("#onboardName", "ياسمين بن علي");
+    h1.click(h1.q('[data-level="4AM"]'));
+    await wait(120);
+    h1.click(h1.q("[data-onboard-submit]"));
+    await wait(600);
+    const sub = h1.q("[data-onboard-submit]");
+    ck("Après validation : bouton réactivé (pas de blocage)", sub ? !sub.disabled : true);
+    const me = h1.window.PKdata && h1.window.PKdata.me;
+    ck("Profil complété après inscription", !!(me && me.level), me ? ("niveau=" + me.level + " role=" + me.role) : "aucun profil");
+    ck("Aucune carte d'erreur affichée", !h1.q(".gate__err") || !h1.q(".gate__err").textContent.trim());
+  } else {
+    ck("Écran de connexion de secours présent", !!h1.q("#authSigninForm"));
+  }
+  ck("Aucune erreur JS (profil partiel)", p1.errs.length === 0, p1.errs[0] || "");
+  p1.dom.window.close();
+
+  /* b) écran de connexion : les DEUX onglets existent pour l'élève */
+  const seedN = JSON.parse(JSON.stringify(SEED)); seedN.me = null;   /* visiteur non connecté */
+  const p2 = await boot("student/index.html", { seed: seedN });
+  await wait(700);
+  const h2 = helpers(p2.dom);
+  ck("Onglet « connexion » présent", !!h2.q('[data-auth-tab="signin"]'));
+  ck("Onglet « créer un compte » présent", !!h2.q('[data-auth-tab="signup"]'));
+  ck("Formulaire d'inscription présent", !!h2.q("#authSignupForm"));
+  ck("Champs nom / e-mail / mot de passe présents",
+     !!(h2.q('#authSignupForm [name="name"]') && h2.q('#authSignupForm [name="email"]') && h2.q('#authSignupForm [name="password"]')));
+  ck("Bouton Google présent", !!h2.q("[data-gate-google]"));
+  ck("Mot de passe oublié présent", !!h2.q("[data-gate-forgot]"));
+  /* l'erreur « méthode désactivée » doit être expliquée en clair */
+  const src4 = fs.readFileSync(path.join(ROOT, "assets/js/04-firebase.js"), "utf8");
+  ck("Message clair si E-mail/Password non activé", /auth\/operation-not-allowed/.test(src4) && /فعّل|activez/i.test(src4));
+  ck("Message clair si domaine non autorisé", /auth\/unauthorized-domain/.test(src4));
+  ck("Message clair si mot de passe court", /auth\/weak-password/.test(src4));
+  ck("Message clair si e-mail déjà utilisé", /auth\/email-already-in-use/.test(src4));
+  p2.dom.window.close();
 }
 
 console.log("\n\x1b[1m════ RÉSULTAT : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");
