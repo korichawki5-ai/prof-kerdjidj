@@ -232,13 +232,25 @@ async function syncProfile(user){
   const ref = ff.doc(db, 'users', user.uid);
   const snap = await ff.getDoc(ref);
   if(!snap.exists()){
+    /* tout nouveau compte est ÉLÈVE dès la création : role 'student'
+       (il lui restera à choisir son niveau + ses intérêts à la 1re connexion) */
     const base = {
       uid:user.uid, email:user.email||'', name:user.displayName||'',
-      photoURL:user.photoURL||null, role:'pending', level:null,
+      photoURL:user.photoURL||null, role:'student', level:null,
       interests:[], onboarded:false, linkedStudentId:null,
       createdAt: ff.serverTimestamp(), lastLoginAt: ff.serverTimestamp()
     };
-    await ff.setDoc(ref, base);
+    try{
+      await ff.setDoc(ref, base);
+    }catch(e1){
+      /* compatibilité si les règles déployées n'acceptent que 'pending' à la
+         création : on crée en 'pending' puis on promeut en 'student'. */
+      console.warn('[PK] creation users/{uid}:', e1 && e1.code);
+      base.role = 'pending';
+      await ff.setDoc(ref, base);
+      try{ await ff.updateDoc(ref, {role:'student'}); base.role = 'student'; }
+      catch(e2){ console.warn('[PK] promotion student:', e2 && e2.code); }
+    }
     return base;
   }
   const data = snap.data() || {};
@@ -376,7 +388,7 @@ async function hydrateMe(user){
     const doneIds = Array.isArray(pr.doneLessons) ? pr.doneLessons : [];
     const me = {
       id:user.uid, uid:user.uid, cardId,
-      role: prof.role || 'pending', level: prof.level || null,
+      role: prof.role || 'student', level: prof.level || null,
       interests: Array.isArray(prof.interests) ? prof.interests : [],
       onboarded: prof.onboarded === true || !!prof.level,
       ar:prof.name||user.displayName||'', fr:prof.name||user.displayName||'',

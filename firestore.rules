@@ -91,7 +91,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read:   if isAdmin() || isSelf(userId);
       allow create: if signed() && isSelf(userId)
-                    && (!('role' in request.resource.data) || request.resource.data.role == 'pending');
+                    && (!('role' in request.resource.data)
+                        || request.resource.data.role == 'student'
+                        || request.resource.data.role == 'pending');
       allow update: if isAdmin() || (isSelf(userId) && profileOnly());
       allow delete: if isAdmin();
     }
