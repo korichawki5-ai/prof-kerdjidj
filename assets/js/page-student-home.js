@@ -77,7 +77,7 @@ function render(mn){
       <button class="btn btn--g btn--i" id="stSearch" title="Ctrl+K">${svg('search')}</button>
       <div class="lgsw"><button data-lang="ar">AR</button><button data-lang="fr">FR</button></div>
       <button class="btn btn--g btn--i" data-theme-btn title="Theme">${svg('moon')}</button>
-      <a href="exercises.html" class="btn btn--p btn--sm">${svg('quiz','width="16" height="16"')}<span data-i18n="exStart">${t('exStart')}</span></a>
+      <a href="/student/exercises.html" class="btn btn--p btn--sm">${svg('quiz','width="16" height="16"')}<span data-i18n="exStart">${t('exStart')}</span></a>
     </div>
   </div>
 
@@ -152,7 +152,7 @@ function render(mn){
         <div class="cd__h cd__h--b">
           <div><div class="cd__t" data-i18n="upEx">${t('upEx')}</div>
             <div class="cd__s">${L_('مخصّصة لمستواك','Adaptés à ton niveau')} · ${s.level}</div></div>
-          <a href="exercises.html" class="btn btn--s btn--sm" data-i18n="seeAll">${t('seeAll')}</a>
+          <a href="/student/exercises.html" class="btn btn--s btn--sm" data-i18n="seeAll">${t('seeAll')}</a>
         </div>
         <div class="g gap3">
           ${sugg.map(x=>{
@@ -166,7 +166,7 @@ function render(mn){
               </div>
               <div class="itm__s">
                 <span class="pill-xp">${svg('bolt','width="13" height="13"')}≤${x.xpMax}</span>
-                <a class="btn btn--p btn--sm" href="exercise.html?id=${x.id}">${t('exStart')}</a>
+                <a class="btn btn--p btn--sm" href="/student/exercise.html?id=${x.id}">${t('exStart')}</a>
               </div>
             </div>`;}).join('')}
         </div>
@@ -176,7 +176,7 @@ function render(mn){
       <div class="cd rv">
         <div class="cd__h cd__h--b">
           <div><div class="cd__t" data-i18n="newLs">${t('newLs')}</div><div class="cd__s">${s.level}</div></div>
-          <a href="lessons.html" class="btn btn--s btn--sm" data-i18n="lsAll">${t('lsAll')}</a>
+          <a href="/student/lessons.html" class="btn btn--s btn--sm" data-i18n="lsAll">${t('lsAll')}</a>
         </div>
         <div class="g gap3">
           ${ls.map(x=>{
@@ -188,7 +188,7 @@ function render(mn){
                   ${x.files?` · ${svg('file','width="13" height="13"')}<span class="la">${x.files}</span>`:''}</small></div>
               <div class="itm__s">
                 <span class="pill-xp">${svg('bolt','width="13" height="13"')}+${x.xp}</span>
-                <a class="btn btn--g btn--sm" href="lesson.html?id=${x.id}">${x.done?t('exReview'):t('lsStart')}</a>
+                <a class="btn btn--g btn--sm" href="/student/lesson.html?id=${x.id}">${x.done?t('exReview'):t('lsStart')}</a>
               </div>
             </div>`;}).join('')}
         </div>
@@ -238,7 +238,7 @@ function render(mn){
               <div class="prg prg--sm ${cls}"><i data-w="${v}%" style="width:${v}%"></i></div>
             </div>`;}).join('')}
         </div>
-        <a href="progress.html" class="btn btn--g btn--sm btn--blk mt4">${t('sbProg')} ${svg('arrow','width="15" height="15"')}</a>
+        <a href="/student/progress.html" class="btn btn--g btn--sm btn--blk mt4">${t('sbProg')} ${svg('arrow','width="15" height="15"')}</a>
       </div>
 
       <!-- badges -->
@@ -246,7 +246,7 @@ function render(mn){
         <div class="cd__h" style="margin-block-end:16px"><div class="cd__t" data-i18n="badges">${t('badges')}</div>
           <span class="bd la">${sum.badges.length}/16</span></div>
         <div class="g g3" style="gap:12px" id="miniBadges"></div>
-        <a href="progress.html" class="btn btn--g btn--sm btn--blk mt4">${t('seeAll')}</a>
+        <a href="/student/progress.html" class="btn btn--g btn--sm btn--blk mt4">${t('seeAll')}</a>
       </div>
 
       <!-- annonces -->

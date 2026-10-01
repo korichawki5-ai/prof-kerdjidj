@@ -543,12 +543,12 @@ function lessons(){
           <span>${svg('file','width="13" height="13"')}${l.files||0} ${t('lsPdf')}</span>
           ${l.video?`<span>${svg('play','width="13" height="13"')}${t('lsVideo')}</span>`:''}
         </div>
-        <div class="cd__f"><button class="btn btn--s btn--sm" style="flex:1">${svg('edit','width="15" height="15"')}${t('edit')}</button>
+        <div class="cd__f"><button class="btn btn--s btn--sm" style="flex:1" data-edit-lesson="${l.id}">${svg('edit','width="15" height="15"')}${t('edit')}</button>
           <button class="btn btn--g btn--sm" data-preview-lesson="${l.id}" title="${t('seeMore')}">${svg('eye','width="15" height="15"')}</button>
           <button class="iact iact--er" data-del-lesson="${l.id}" title="${t('del')}">${svg('trash')}</button></div>
       </div>`;}).join('')}
   </div>
-  <div class="cd mt5 rv">
+  <div class="cd mt5 rv" id="lsCard">
     <div class="cd__t mb4" data-i18n="lsEd">${t('lsEd')}</div>
     <div class="cd__s mb5" data-i18n="lsEdS">${t('lsEdS')}</div>
     <div class="g g2 mb4" style="gap:14px">
@@ -678,7 +678,7 @@ function render(mn){
   const keys = Object.keys(MODS);   // la barre affiche : principaux + secondaires (sauf « bank »)
   mn.innerHTML = `
   <div class="mn__t">
-    <div><div class="crumb"><a href="../index.html">${L_('الموقع','Site')}</a>${svg('chev')}<span>${t('adPanel')}</span></div>
+    <div><div class="crumb"><a href="/index.html">${L_('الموقع','Site')}</a>${svg('chev')}<span>${t('adPanel')}</span></div>
       <h1 id="adTitle">${MODS[cur].t()}</h1>
       <p id="adSub">${L_('إدارة الدروس والتمارين والتلاميذ والأفواج والحصص — كل شيء في مكان واحد',
         'Gérer les cours, exercices, élèves, groupes et séances — tout au même endroit')}</p></div>
@@ -686,7 +686,7 @@ function render(mn){
       <button class="btn btn--g btn--i" id="adSearch" title="Ctrl+K">${svg('search')}</button>
       <div class="lgsw"><button data-lang="ar">AR</button><button data-lang="fr">FR</button></div>
       <button class="btn btn--g btn--i" data-theme-btn>${svg('moon')}</button>
-      <a href="../student/index.html" class="btn btn--g btn--sm">${svg('eye','width="16" height="16"')}${L_('فضاء التلميذ','Espace élève')}</a>
+      <a href="/student/index.html" class="btn btn--g btn--sm">${svg('eye','width="16" height="16"')}${L_('فضاء التلميذ','Espace élève')}</a>
       <button class="btn btn--p btn--sm" id="adPublish">${svg('up','width="16" height="16"')}${t('adPublish')}</button>
     </div>
   </div>
@@ -798,6 +798,9 @@ function onWrite(e){
   /* ── COURS ── */
   if(tgt.closest('#lsPublish'))   return saveLesson(true);
   if(tgt.closest('#lsSaveDraft')) return saveLesson(false);
+  if(tgt.closest('[data-add-lesson]')) return openLessonEditor(null);
+  const eLs = tgt.closest('[data-edit-lesson]');
+  if(eLs) return openLessonEditor(eLs.dataset.editLesson);
   const ed = tgt.closest('[data-ed]');
   if(ed){ const cmd={bold:'bold',italic:'italic',underline:'underline',h:'formatBlock',list:'insertUnorderedList',quote:'formatBlock'}[ed.dataset.ed];
     try{ if(cmd==='formatBlock') document.execCommand(cmd,false, ed.dataset.ed==='h'?'H2':'BLOCKQUOTE'); else if(cmd) document.execCommand(cmd,false,null); }catch(_){}
@@ -805,7 +808,7 @@ function onWrite(e){
   const dLs = tgt.closest('[data-del-lesson]');
   if(dLs) return confirmThen(t('confirmDel'), ()=> window.PKdb.remove('lessons', dLs.dataset.delLesson).then(r=>{ if(r.ok){ okToast('savedOk'); refresh(); } }));
   const pv = tgt.closest('[data-preview-lesson]');
-  if(pv){ try{ window.open('../student/lesson.html?id='+encodeURIComponent(pv.dataset.previewLesson),'_blank'); }catch(_){} return; }
+  if(pv){ try{ window.open('/student/lesson.html?id='+encodeURIComponent(pv.dataset.previewLesson),'_blank'); }catch(_){} return; }
 
   /* ── ÉLÈVES ── */
   if(tgt.closest('[data-add-student]'))  return openStudentModal(null);
@@ -836,7 +839,7 @@ function onWrite(e){
 
   /* ── DIVERS ── */
   if(tgt.closest('[data-print]')) { try{ window.print(); }catch(_){} return; }
-  if(tgt.closest('#adPublish')){ try{ window.open('../index.html','_blank'); }catch(_){} return; }
+  if(tgt.closest('#adPublish')){ try{ window.open('/index.html','_blank'); }catch(_){} return; }
 }
 
 /* ── ANNONCE ── */
@@ -862,7 +865,30 @@ function sendAnnouncement(){
   });
 }
 
-/* ── COURS ── */
+/* ── COURS : nouvel élément ou modification de l'élément ouvert ── */
+let EDIT_LESSON = null;
+function openLessonEditor(id){
+  const ed = document.getElementById('lsEditor');
+  if(!ed) return;
+  const put = (i,v)=>{ const el=document.getElementById(i); if(el) el.value = v; };
+  if(id){
+    const l = (D.lessons||[]).find(x=>x.id===id);
+    if(!l) return;
+    EDIT_LESSON = id;
+    put('lsTitleAr', l.ar||''); put('lsTitleFr', l.fr||'');
+    ed.innerHTML = l.content || '';
+    put('lsLevel', l.level||'4AM'); put('lsAxis', l.ax||'grammaire'); put('lsMin', l.min||25);
+    toast(L_('وضع التعديل: عدّل الحقول ثم انشر','Mode édition : modifiez puis publiez'),'info',2600);
+  }else{
+    EDIT_LESSON = null;
+    put('lsTitleAr',''); put('lsTitleFr',''); ed.innerHTML='';
+    put('lsLevel','4AM'); put('lsAxis','grammaire'); put('lsMin',25);
+    toast(L_('وضع الإضافة: املأ الحقول ثم انشر','Mode ajout : remplissez les champs puis publiez'),'info',2600);
+  }
+  const card = document.getElementById('lsCard');
+  if(card && card.scrollIntoView){ try{ card.scrollIntoView({behavior:'smooth', block:'center'}); }catch(_){ card.scrollIntoView(); } }
+  setTimeout(()=>{ const el=document.getElementById('lsTitleAr'); if(el && el.focus) el.focus(); }, 380);
+}
 function saveLesson(publish){
   const editor = document.getElementById('lsEditor');
   const content = editor ? editor.innerHTML.trim() : '';
@@ -876,9 +902,16 @@ function saveLesson(publish){
     min:+val('lsMin') || 25, xp:25, files:0, video:false, isNew:!!publish,
     done:!!publish, content, at: FF ? FF.serverTimestamp() : new Date(), date: window.PKdb.today()
   };
-  window.PKdb.add('lessons', doc).then(r=>{
+  const wasEditing = !!EDIT_LESSON;
+  if(wasEditing){
+    const old = (D.lessons||[]).find(x=>x.id===EDIT_LESSON);
+    if(old){ doc.files = old.files||0; doc.video = !!old.video; if(!publish && typeof old.done==='boolean') doc.done = old.done; }
+  }
+  const op = wasEditing ? window.PKdb.set('lessons', EDIT_LESSON, doc) : window.PKdb.add('lessons', doc);
+  Promise.resolve(op).then(r=>{
     if(r.ok){
       okToast(publish ? 'adPublished' : 'savedOk');
+      if(wasEditing) EDIT_LESSON = null;
       ['lsTitleAr','lsTitleFr'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
       if(editor) editor.innerHTML='';
       refresh();
@@ -1383,7 +1416,7 @@ function settings(){
             .map(([l,v])=>`<div class="flex just-b items-c" style="padding:10px 0;border-block-end:1px dashed var(--line);font-size:.85rem">
               <span class="muted">${l}</span><b class="la">${v}</b></div>`).join('')}
         </div>
-        <a class="btn btn--g btn--blk mt5" href="../contact.html" target="_blank">${svg('eye','width="17" height="17"')}${L_('افتح صفحة تواصل للتحقق','Ouvrir la page Contact pour vérifier')}</a>
+        <a class="btn btn--g btn--blk mt5" href="/contact.html" target="_blank">${svg('eye','width="17" height="17"')}${L_('افتح صفحة تواصل للتحقق','Ouvrir la page Contact pour vérifier')}</a>
       </div>
     </div>
   </div>`;

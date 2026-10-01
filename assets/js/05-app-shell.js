@@ -9,46 +9,48 @@ const {$, $$, svg, logo, t, boot, toast, replayFx, initReveal} = window.PK;
 /* ───────── BARRES LATÉRALES ───────── */
 const STUDENT_NAV = [
   {g:'sbMain', items:[
-    {k:'sbDash',    href:'index.html',         icon:'grid'},
-    {k:'sbLessons', href:'lessons.html',       icon:'book',   cnt:3},
-    {k:'sbEx',      href:'exercises.html',     icon:'quiz',   cnt:2},
+    {k:'sbDash',    href:'/student/index.html',         icon:'grid'},
+    {k:'sbLessons', href:'/student/lessons.html',       icon:'book',   cnt:3},
+    {k:'sbEx',      href:'/student/exercises.html',     icon:'quiz',   cnt:2},
   ]},
   {g:'sbTrack', items:[
-    {k:'sbProg',    href:'progress.html',      icon:'trend'},
-    {k:'sbTt',      href:'timetable.html',     icon:'cal'},
-    {k:'sbAnn',     href:'announcements.html', icon:'bell',   cnt:2},
-    {k:'sbProfile', href:'profile.html',       icon:'user'},
+    {k:'sbProg',    href:'/student/progress.html',      icon:'trend'},
+    {k:'sbTt',      href:'/student/timetable.html',     icon:'cal'},
+    {k:'sbAnn',     href:'/student/announcements.html', icon:'bell',   cnt:2},
+    {k:'sbProfile', href:'/student/profile.html',       icon:'user'},
   ]}
 ];
 /* Le panneau d'administration est UNE page à modules : chaque entrée pointe
    vers index.html#module (aucun lien mort, chargement instantané). */
 const ADMIN_NAV = [
-  {g:'adMain', items:[ {k:'adDash', href:'index.html#overview', icon:'grid'} ]},
+  {g:'adMain', items:[ {k:'adDash', href:'/admin/index.html#overview', icon:'grid'} ]},
   {g:'adTeach', items:[
-    {k:'adLessons', href:'index.html#lessons',  icon:'book'},
-    {k:'adQuiz',    href:'index.html#quiz',     icon:'quiz',  cnt:5},
-    {k:'adQbank',   href:'index.html#bank',     icon:'layers'},
-    {k:'adEx',      href:'index.html#lessons',  icon:'write', cnt:12},
+    {k:'adLessons', href:'/admin/index.html#lessons',  icon:'book'},
+    {k:'adQuiz',    href:'/admin/index.html#quiz',     icon:'quiz',  cnt:5},
+    {k:'adQbank',   href:'/admin/index.html#bank',     icon:'layers'},
+    {k:'adEx',      href:'/admin/index.html#lessons',  icon:'write', cnt:12},
   ]},
   {g:'adPpl', items:[
-    {k:'adStudents',href:'index.html#students', icon:'users'},
-    {k:'adGroups',  href:'index.html#groups',   icon:'school'},
-    {k:'adTt',      href:'index.html#tt',       icon:'cal'},
-    {k:'adProg',    href:'index.html#prog',     icon:'trend'},
+    {k:'adStudents',href:'/admin/index.html#students', icon:'users'},
+    {k:'adGroups',  href:'/admin/index.html#groups',   icon:'school'},
+    {k:'adTt',      href:'/admin/index.html#tt',       icon:'cal'},
+    {k:'adProg',    href:'/admin/index.html#prog',     icon:'trend'},
   ]},
   {g:'adSite', items:[
-    {k:'adAnn',     href:'index.html#announce', icon:'bell'},
-    {k:'adMsg',     href:'index.html#messages', icon:'msg',   cnt:3},
-    {k:'adSet',     href:'index.html#settings', icon:'set'},
+    {k:'adAnn',     href:'/admin/index.html#announce', icon:'bell'},
+    {k:'adMsg',     href:'/admin/index.html#messages', icon:'msg',   cnt:3},
+    {k:'adSet',     href:'/admin/index.html#settings', icon:'set'},
   ]}
 ];
 
 /** Lien actif : même fichier + même module (#hash) si présent. */
 function isOn(href, active){
-  const [f,h] = href.split('#'), [af,ah] = String(active).split('#');
-  if(f !== af) return false;
+  const [f,h] = String(href).split('#'), [af,ah] = String(active).split('#');
+  const base = p => String(p).replace(/^.*\//,'');
+  if(base(f) !== base(af)) return false;
   if(!h) return !ah;
-  return h === (ah || String(location.hash).replace('#',''));
+  const cur = ah || String(location.hash).replace('#','');
+  return h === cur || (h === 'overview' && !cur);
 }
 
 function sidebar(role, active){
@@ -65,7 +67,7 @@ function sidebar(role, active){
         return {ini, ar:s.ar||'', fr:s.fr||'', sub:(s.level||'')+' · '+((window.PKdata.groupOf(s.group)||{}).name||''), col:s.color||'linear-gradient(140deg,#1E4FD8,#0B2470)'}; })();
 
   return `<aside class="sb">
-    <a class="br" href="${isAdm?'index.html':'../index.html'}">
+    <a class="br" href="${isAdm?'/admin/index.html':'/index.html'}">
       <span class="br__m" style="width:42px;height:42px;border-radius:13px">${logo(42)}</span>
       <span class="br__t"><span class="br__n" style="font-size:.93rem">${brandTxt}</span>
         <span class="br__sb">Prof. Kerdjidj</span></span>
@@ -133,7 +135,7 @@ function bindDelegated(){
 async function doLogout(){
   try{ await window.PKdb.logout(); }catch(e){}
   toast(window.PKi18n.t('sbOut')+' ✓','info',1600);
-  setTimeout(()=>{ location.href = location.pathname.indexOf('/admin/')>=0 || location.pathname.indexOf('/student/')>=0 ? '../index.html' : 'index.html'; }, 500);
+  setTimeout(()=>{ location.href = '/index.html'; }, 500);
 }
 
 /* ───────── MONTAGE ───────── */

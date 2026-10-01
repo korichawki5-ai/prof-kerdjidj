@@ -302,7 +302,12 @@ sec("6 · Panneau d'administration — 11 modules sur données semées");
     ["groups", "Groupes", () => [["2 groupes + carte d'ajout", h.qa(".grp").length >= 2], ["École affichée", /CEM|متوسطة/.test(h.document.body.textContent)]]],
     ["quiz", "Constructeur de quiz", () => [["Formulaire", h.qa(".fld").length >= 6], ["Bouton enregistrer", !!h.q("[data-save-quiz]")]]],
     ["bank", "Banque de questions", () => [["8 questions semées", h.qa(".tb tbody tr").length >= 8]]],
-    ["lessons", "Leçons", () => [["3 leçons semées", h.qa(".lsn").length === 3], ["Éditeur riche", !!h.q(".ed__b2")]]],
+    ["lessons", "Leçons", () => [["3 leçons semées", h.qa(".lsn").length === 3], ["Éditeur riche", !!h.q(".ed__b2")],
+      ["Bouton « nouveau cours » vide l'éditeur", (() => { const ed = h.q("#lsEditor"); if(!ed) return false;
+        ed.innerHTML = "<p>texte</p>"; const b = h.q("[data-add-lesson]"); if(!b) return false; h.click(b);
+        return ed.innerHTML.trim() === "" && !!h.q("#lsTitleAr"); })()],
+      ["Bouton « modifier » charge le cours", (() => { const eb = h.q("[data-edit-lesson]"); if(!eb) return false;
+        h.click(eb); const ta = h.q("#lsTitleAr"); return !!ta && ta.value.length > 0; })()]]],
     ["prog", "Progression", () => [["6 rangs", h.qa(".rk").length === 6], ["16 badges", h.qa(".bdgc").length === 16]]],
     ["announce", "Annonces", () => [["2 annonces semées", h.document.body.textContent.includes("إعلان تجريبي واحد")], ["Bouton publier", !!h.q("[data-send-ann]")]]],
     ["messages", "Messagerie", () => [["Message réel listé", h.document.body.textContent.includes("ولي تلميذ")], ["Champ de réponse", !!h.q(".msgc textarea")]]],
@@ -517,6 +522,31 @@ sec("9 · Cohérence entre le code et firestore.rules");
   })());
   ck("Panneau monté seulement après contrôle du rôle", /isDemo\(\) \|\| \(m && m\.role === 'admin'\)/.test(fs.readFileSync(path.join(ROOT,"assets/js/page-admin.js"),"utf8")));
   ck("Écran admin pleine largeur (CSS)", /\.app--gate\{grid-template-columns:1fr\}/.test(fs.readFileSync(path.join(ROOT,"assets/css/05-app.css"),"utf8")));
+
+  /* ── Navigation interne : liens absolus (dossiers ouverts en /admin ou /student) ── */
+  const shell = fs.readFileSync(path.join(ROOT,"assets/js/05-app-shell.js"), "utf8");
+  ck("Menu élève : liens absolus /student/…", /href:'\/student\/lessons\.html'/.test(shell) && /href:'\/student\/profile\.html'/.test(shell));
+  ck("Menu admin : liens absolus /admin/index.html#…", /href:'\/admin\/index\.html#lessons'/.test(shell) && /href:'\/admin\/index\.html#students'/.test(shell));
+  ck("Plus aucun lien de menu relatif", !/href:'(index|lessons|exercises|progress|timetable|announcements|profile)\.html'/.test(shell));
+  ck("Lien actif comparé par nom de fichier", shell.includes("const base = p => String(p).replace(/^.*\\//,'')"));
+  const appFiles = ["05-app-shell.js","page-student.js","page-student-home.js","page-student-exercise.js","page-admin.js"];
+  ck("Aucun href relatif dans le chrome des applis", (() => {
+    const bad = [];
+    appFiles.forEach(f => { const src = fs.readFileSync(path.join(ROOT,"assets/js",f),"utf8");
+      if (/href="(?![/#]|https?:|tel:|mailto:|\$)/.test(src)) bad.push(f); });
+    return bad.length ? bad.join(",") : true;
+  })());
+
+  /* ── Bouton « nouveau cours » réellement câblé ── */
+  const adminJs = fs.readFileSync(path.join(ROOT,"assets/js/page-admin.js"), "utf8");
+  ck("Bouton « nouveau cours » : gestionnaire présent", /tgt\.closest\('\[data-add-lesson\]'\)\) return openLessonEditor\(null\)/.test(adminJs));
+  ck("Éditeur de cours : fonction d'ouverture", /function openLessonEditor\(id\)/.test(adminJs) && /data-edit-lesson="\$\{l\.id\}"/.test(adminJs));
+  ck("Éditeur : enregistrement = mise à jour du cours ouvert", /window\.PKdb\.set\('lessons', EDIT_LESSON, doc\)/.test(adminJs));
+
+  /* ── Rythme vertical mobile resserré ── */
+  const resp = fs.readFileSync(path.join(ROOT,"assets/css/07-responsive.css"), "utf8");
+  ck("Espacement mobile resserré (tokens)", /--sp5:18px;--sp6:24px;--sp7:32px/.test(resp));
+  ck("Sections mobiles moins hautes", /\.sec\{padding-block:44px\}/.test(resp));
 }
 
 console.log("\n\x1b[1m════ RÉSULTAT : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");

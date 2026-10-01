@@ -130,14 +130,14 @@ function logo(size){
 
 /* ══════════ 4. CHROME : EN-TÊTE + PIED DE PAGE ══════════ */
 const NAV = [
-  {k:'navHome',     href:'index.html'},
-  {k:'navLevels',   href:'levels.html'},
-  {k:'navLessons',  href:'lessons.html'},
-  {k:'navEx',       href:'exercises.html'},
-  {k:'navTimetable',href:'timetable.html'},
-  {k:'navAbout',    href:'about.html'},
-  {k:'navFaq',      href:'faq.html'},
-  {k:'navContact',  href:'contact.html'}
+  {k:'navHome',     href:'/index.html'},
+  {k:'navLevels',   href:'/levels.html'},
+  {k:'navLessons',  href:'/lessons.html'},
+  {k:'navEx',       href:'/exercises.html'},
+  {k:'navTimetable',href:'/timetable.html'},
+  {k:'navAbout',    href:'/about.html'},
+  {k:'navFaq',      href:'/faq.html'},
+  {k:'navContact',  href:'/contact.html'}
 ];
 function buildHeader(active){
   const cfg = (window.PKdata && window.PKdata.settings) || {};
@@ -467,7 +467,7 @@ function boot(active){
   if(!PAL.length){
     const g = window.PKi18n.current()==='ar' ? 'تنقّل' : 'Navigation';
     PAL = NAV.map(n=>({label:window.PKi18n.t(n.k), href:n.href, icon:'arrow', group:g}))
-      .concat([{label:window.PKi18n.t('navLogin'), href:'student/index.html', icon:'users', group:g}]);
+      .concat([{label:window.PKi18n.t('navLogin'), href:'/student/index.html', icon:'users', group:g}]);
   }
   document.dispatchEvent(new CustomEvent('pk:ready'));
   /* erreurs Firestore / Auth : une seul message clair, jamais de silence */

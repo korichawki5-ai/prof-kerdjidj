@@ -53,7 +53,7 @@ function lessons(){
     title:t('sbLessons'),
     sub:L_(`${myLessons().length} درساً · أكملت ${done} · كل درس مكتمل = +${X.CFG.xpPerLesson} XP`,
            `${myLessons().length} cours · ${done} terminés · chaque cours terminé = +${X.CFG.xpPerLesson} XP`),
-    actions:`<a href="exercises.html" class="btn btn--p btn--sm">${svg('quiz','width="16" height="16"')}${t('sbEx')}</a>`}) + `
+    actions:`<a href="/student/exercises.html" class="btn btn--p btn--sm">${svg('quiz','width="16" height="16"')}${t('sbEx')}</a>`}) + `
   <div class="kpis cas">
     ${[[t('k4'),done,'book','ico--pu'],[t('lsAll'),myLessons().length,'layers',''],
        [t('xpTotal'),sum.xp.toLocaleString('fr-FR'),'bolt','ico--wn'],[t('mastery'),sum.globalMastery+'%','target','ico--ok']]
@@ -109,7 +109,7 @@ function renderLsGrid(host){
       <span class="bd bd--gy la">${svg('file','width="12" height="12"')}${x.files||0}</span>
       <span class="bd bd--wn la">${svg('bolt','width="12" height="12"')}+${x.xp||X.CFG.xpPerLesson} XP</span>
     </div>
-    <a class="btn btn--${x.done?'g':'p'} btn--blk mt4" href="lesson.html?id=${x.id}">
+    <a class="btn btn--${x.done?'g':'p'} btn--blk mt4" href="/student/lesson.html?id=${x.id}">
       ${svg(x.done?'checkc':'book','width="16" height="16"')}${x.done?t('exCont'):t('lsStart')}</a>
   </article>`).join('');
   initReveal(g); replayFx(g);
@@ -136,8 +136,8 @@ function lessonPage(){
   return head({crumb:crumb('index.html',t('sbDash'))+crumb('lessons.html',t('sbLessons'))+'<span>'+l.id+'</span>',
     title:L_(l.ar,l.fr),
     sub:`${l.level} · ${axName(l.ax)} · ${l.min} ${t('lsMin')} · +${l.xp||X.CFG.xpPerLesson} XP`,
-    actions:`${prev?`<a class="btn btn--g btn--i" href="lesson.html?id=${prev.id}" title="${L_('السابق','Précédent')}">${svg('arrow')}</a>`:''}
-      ${next?`<a class="btn btn--g btn--i" href="lesson.html?id=${next.id}" title="${L_('التالي','Suivant')}">${svg('chev')}</a>`:''}`}) + `
+    actions:`${prev?`<a class="btn btn--g btn--i" href="/student/lesson.html?id=${prev.id}" title="${L_('السابق','Précédent')}">${svg('arrow')}</a>`:''}
+      ${next?`<a class="btn btn--g btn--i" href="/student/lesson.html?id=${next.id}" title="${L_('التالي','Suivant')}">${svg('chev')}</a>`:''}`}) + `
   <div class="g g-main" style="align-items:start">
     <div style="min-width:0;display:flex;flex-direction:column;gap:20px">
       <div class="cd rv">
@@ -167,7 +167,7 @@ function lessonPage(){
           <span class="ico ico--sm">${svg('quiz')}</span>
           <div style="min-width:0"><b>${L_(e.titleAr,e.titleFr)}</b>
             <div class="muted la" style="font-size:.78rem">${e.q} ${t('exQ')} · ${e.min} min · ≤ ${e.xpMax} XP</div></div>
-          <a class="btn btn--s btn--sm" style="margin-inline-start:auto" href="exercise.html?id=${e.id}">${svg('play','width="14" height="14"')}${t('exStart')}</a>
+          <a class="btn btn--s btn--sm" style="margin-inline-start:auto" href="/student/exercise.html?id=${e.id}">${svg('play','width="14" height="14"')}${t('exStart')}</a>
         </div>`).join('')}
       </div>`:''}
     </div>
@@ -192,7 +192,7 @@ function lessonPage(){
         <div class="cd__t mb4" style="font-size:.95rem">${L_('الدروس المجاورة','Cours voisins')}</div>
         <div class="g gap3">
           ${myLessons().filter(x=>x.level===l.level&&x.id!==l.id).slice(0,4).map(x=>`
-            <a href="lesson.html?id=${x.id}" class="mini-row"><span class="bd bd--gy la">${x.id}</span>
+            <a href="/student/lesson.html?id=${x.id}" class="mini-row"><span class="bd bd--gy la">${x.id}</span>
               <span style="font-size:.83rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" dir="ltr">${L_(x.ar,x.fr)}</span></a>`).join('')}
         </div>
       </div>
@@ -229,7 +229,7 @@ function exercises(){
     title:t('sbEx'),
     sub:L_(`${myExercises().length} تمريناً · أنجزت ${sum.exDone} · دقّتك ${sum.accuracy}%`,
            `${myExercises().length} exercices · ${sum.exDone} résolus · précision ${sum.accuracy}%`),
-    actions:`<a href="lessons.html" class="btn btn--g btn--sm">${svg('book','width="16" height="16"')}${t('sbLessons')}</a>`}) + `
+    actions:`<a href="/student/lessons.html" class="btn btn--g btn--sm">${svg('book','width="16" height="16"')}${t('sbLessons')}</a>`}) + `
   <div class="kpis cas">
     ${[[t('k5'),sum.exDone,'quiz','ico--cy'],[t('accuracy'),sum.accuracy+'%','checkc','ico--ok'],
        [t('bestStreak'),sum.bestStreak,'flame','ico--wn'],[t('xpTotal'),sum.xp.toLocaleString('fr-FR'),'bolt','']]
@@ -273,7 +273,7 @@ function renderExGrid(host){
         <span class="bd bd--gy la">${svg('quiz','width="12" height="12"')}${x.q}</span>
         <span class="bd bd--gy la">${svg('clock','width="12" height="12"')}${x.min}</span>
         <span class="bd bd--wn la">${svg('bolt','width="12" height="12"')}≤ ${x.xpMax}</span>
-        <a class="btn btn--p btn--sm" style="margin-inline-start:auto" href="exercise.html?id=${x.id}">${svg('play','width="15" height="15"')}${t('exStart')}</a>
+        <a class="btn btn--p btn--sm" style="margin-inline-start:auto" href="/student/exercise.html?id=${x.id}">${svg('play','width="15" height="15"')}${t('exStart')}</a>
       </div>
     </div>`;}).join('');
   initReveal(g); replayFx(g);
@@ -302,7 +302,7 @@ function progressPage(){
     title:t('sbProg'),
     sub:L_('XP · رتبة · سلسلة · إتقان لكل محور · أوسمة — بدون أي نقطة مدرسية',
            'XP · rang · série · maîtrise par axe · badges — aucune note scolaire'),
-    actions:`<a href="exercises.html" class="btn btn--p btn--sm">${svg('play','width="16" height="16"')}${t('exStart')}</a>`}) + `
+    actions:`<a href="/student/exercises.html" class="btn btn--p btn--sm">${svg('play','width="16" height="16"')}${t('exStart')}</a>`}) + `
   <div class="g g-main" style="align-items:start">
     <div style="min-width:0;display:flex;flex-direction:column;gap:20px">
       <div class="cd rv" style="background:linear-gradient(140deg,var(--ac-dd),var(--ac) 60%,var(--ac-2));border:0;color:#fff">
@@ -533,7 +533,7 @@ function announcements(){
       <div class="cd rv" style="--d:60ms">
         <div class="cd__t mb4" style="font-size:.95rem">${t('adMsg')}</div>
         <p class="muted" style="font-size:.86rem;line-height:1.8">${L_('تحتاج توضيحاً؟ راسل الأستاذة مباشرة من فضاءك.','Besoin d’une précision ? Écrivez à la professeure depuis votre espace.')}</p>
-        <a class="btn btn--p btn--blk mt4" href="../contact.html">${svg('send','width="17" height="17"')}${t('navContact')}</a>
+        <a class="btn btn--p btn--blk mt4" href="/contact.html">${svg('send','width="17" height="17"')}${t('navContact')}</a>
       </div>
     </div>
   </div>`;
@@ -620,8 +620,8 @@ function profile(){
             <span class="sw ${on?'on':''}"><i></i></span><span style="font-size:.88rem">${l}</span></label>`).join('')}
       </div>
       <div class="flex gap3 wrap-f">
-        <a class="btn btn--g" href="../index.html">${svg('globe','width="17" height="17"')}${t('viewPublic')}</a>
-        <a class="btn btn--g" href="../admin/index.html">${svg('set','width="17" height="17"')}${t('viewAdmin')}</a>
+        <a class="btn btn--g" href="/index.html">${svg('globe','width="17" height="17"')}${t('viewPublic')}</a>
+        <a class="btn btn--g" href="/admin/index.html">${svg('set','width="17" height="17"')}${t('viewAdmin')}</a>
         <button class="btn btn--er" style="margin-inline-start:auto" data-logout>${svg('logout','width="17" height="17"')}${t('sbOut')}</button>
       </div>
     </div>
@@ -635,7 +635,7 @@ function bindProfile(host){
     window.PKdb.loginGoogle().then(()=>toast(L_('تم الدخول بحساب Google ✓','Connexion Google réussie ✓'),'ok',2600))
       .catch(()=>toast(L_('الدخول بـ Google يتطلّب ربط Firebase','La connexion Google nécessite Firebase'),'wn',3000));});
   const lo=$('[data-logout]',host); if(lo) lo.addEventListener('click',()=>{
-    window.PKdb.logout(); toast(L_('إلى اللقاء 👋','À bientôt 👋'),'info',2200); setTimeout(()=>location.href='../index.html',900);});
+    window.PKdb.logout(); toast(L_('إلى اللقاء 👋','À bientôt 👋'),'info',2200); setTimeout(()=>location.href='/index.html',900);});
   $$('[data-pref] button',host).forEach(b=> b.addEventListener('click',()=>{
     $$('[data-pref="'+b.closest('[data-pref]').dataset.pref+'"] button',host).forEach(x=>x.classList.toggle('on',x===b));
     const kind=b.closest('[data-pref]').dataset.pref;

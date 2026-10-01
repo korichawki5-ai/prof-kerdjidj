@@ -32,14 +32,14 @@ function renderBrief(mn){
   mn.innerHTML = `
   <div class="mn__t">
     <div>
-      <div class="crumb"><a href="index.html">${t('sbDash')}</a>${svg('chev')}<a href="exercises.html">${t('sbEx')}</a>${svg('chev')}<span>${EX.id}</span></div>
+      <div class="crumb"><a href="/student/index.html">${t('sbDash')}</a>${svg('chev')}<a href="/student/exercises.html">${t('sbEx')}</a>${svg('chev')}<span>${EX.id}</span></div>
       <h1 style="font-size:clamp(1.3rem,2.6vw,1.85rem)">${L_(EX.titleAr,EX.titleFr)}</h1>
       <p>${L_(EX.descAr,EX.descFr)}</p>
     </div>
     <div class="mn__a">
       <div class="lgsw"><button data-lang="ar">AR</button><button data-lang="fr">FR</button></div>
       <button class="btn btn--g btn--i" data-theme-btn>${svg('moon')}</button>
-      <a href="exercises.html" class="btn btn--g btn--sm">${svg('arrow','width="16" height="16"')}${t('back')}</a>
+      <a href="/student/exercises.html" class="btn btn--g btn--sm">${svg('arrow','width="16" height="16"')}${t('back')}</a>
     </div>
   </div>
 
@@ -297,7 +297,7 @@ function finish(mn){
       <div class="flex gap3 mt6 wrap-f" style="justify-content:center">
         <button class="btn btn--g" id="btnReview">${svg('eye','width="17" height="17"')}${t('exReview')}</button>
         <button class="btn btn--s" id="btnRetry">${svg('refresh','width="17" height="17"')}${t('retry')}</button>
-        <a class="btn btn--p" href="index.html">${svg('grid','width="17" height="17"')}${t('sbDash')}</a>
+        <a class="btn btn--p" href="/student/index.html">${svg('grid','width="17" height="17"')}${t('sbDash')}</a>
       </div>
     </div>
   </div>
