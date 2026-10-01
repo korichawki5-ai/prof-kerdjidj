@@ -1,0 +1,91 @@
+rules_version = '2';
+
+/* ════════════════════════════════════════════════════════════════
+   Plateforme Prof. Kerdjidj — règles Firestore
+   Principes :
+    · contenu pédagogique public en LECTURE (site vitrine) ;
+    · un élève lit uniquement SES données ;
+    · l'ÉCRITURE est réservée à la professeure (role == "admin") ;
+    · AUCUNE note scolaire : les documents ne portent que de la
+      progression (XP, maîtrise, séries, badges).
+   ════════════════════════════════════════════════════════════════ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signed()        { return request.auth != null; }
+    function uid()           { return request.auth.uid; }
+    function role()          { return get(/databases/$(database)/documents/users/$(uid())).data.role; }
+    function isAdmin()       { return signed() && role() == 'admin'; }
+    function isSelf(id)      { return signed() && uid() == id; }
+
+    /* ── Paramètres du site : lecture publique, écriture admin ── */
+    match /settings/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    /* ── Contenu pédagogique : lecture publique ── */
+    match /levels/{doc}      { allow read: if true; allow write: if isAdmin(); }
+    match /axes/{doc}        { allow read: if true; allow write: if isAdmin(); }
+    match /lessons/{doc}     { allow read: if true; allow write: if isAdmin(); }
+    match /exercises/{doc}   { allow read: if true; allow write: if isAdmin(); }
+    match /quizzes/{doc}     { allow read: if true; allow write: if isAdmin(); }
+    match /questions/{doc}   { allow read: if true; allow write: if isAdmin(); }
+    match /announcements/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /groups/{doc}      { allow read: if signed(); allow write: if isAdmin(); }
+
+    /* ── Élèves : l'admin gère tout, l'élève ne lit que sa fiche ── */
+    match /students/{studentId} {
+      allow read:   if isAdmin() || isSelf(studentId);
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isSelf(studentId) &&
+                      !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['xp','level','group','status','linked','mastery','badges','streak']));
+      allow delete: if isAdmin();
+    }
+
+    /* ── Progression (XP, maîtrise, séries, badges) ── */
+    match /progress/{userId} {
+      allow read:  if isAdmin() || isSelf(userId);
+      allow write: if isAdmin() || isSelf(userId);
+    }
+
+    /* ── Résultats d'exercices : créés par l'élève authentifié ── */
+    match /submissions/{subId} {
+      allow read:   if isAdmin() || (signed() && resource.data.studentId == uid());
+      allow create: if signed() && request.resource.data.studentId == uid();
+      allow update, delete: if isAdmin();
+    }
+    match /exerciseSubs/{subId} {
+      allow read:   if isAdmin() || (signed() && resource.data.studentId == uid());
+      allow create: if signed() && request.resource.data.studentId == uid();
+      allow update, delete: if isAdmin();
+    }
+
+    /* ── Présence aux séances : admin uniquement ── */
+    match /attendance/{doc} {
+      allow read:  if isAdmin() || (signed() && resource.data.studentId == uid());
+      allow write: if isAdmin();
+    }
+
+    /* ── Messagerie : les deux participants + l'admin ── */
+    match /messages/{msgId} {
+      allow read:   if isAdmin() || (signed() && (resource.data.from == uid() || resource.data.to == uid()));
+      allow create: if signed();
+      allow update: if isAdmin() || (signed() && resource.data.from == uid());
+      allow delete: if isAdmin();
+    }
+
+    /* ── Comptes : chacun lit son propre compte, l'admin lit tout ── */
+    match /users/{userId} {
+      allow read:  if isAdmin() || isSelf(userId);
+      allow create: if signed() && isSelf(userId);
+      allow update: if isAdmin() || (isSelf(userId) &&
+                      request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
+    }
+
+    /* ── Tout le reste : refusé par défaut ── */
+    match /{document=**} { allow read, write: if false; }
+  }
+}

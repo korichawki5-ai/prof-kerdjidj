@@ -1,0 +1,15 @@
+{
+  "indexes": [
+    { "collectionGroup": "lessons",     "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "level", "order": "ASCENDING" }, { "fieldPath": "ax", "order": "ASCENDING" }] },
+    { "collectionGroup": "exercises",   "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "level", "order": "ASCENDING" }, { "fieldPath": "type", "order": "ASCENDING" }] },
+    { "collectionGroup": "submissions", "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "studentId", "order": "ASCENDING" }, { "fieldPath": "at", "order": "DESCENDING" }] },
+    { "collectionGroup": "students",    "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "groupId", "order": "ASCENDING" }, { "fieldPath": "xp", "order": "DESCENDING" }] },
+    { "collectionGroup": "messages",    "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "to", "order": "ASCENDING" }, { "fieldPath": "at", "order": "DESCENDING" }] }
+  ],
+  "fieldOverrides": []
+}

@@ -1,0 +1,97 @@
+/* ══════════════════════════════════════════════════════════════════
+   07-responsive.css · Adaptatif + Impression
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width:1240px){
+  .nv{display:none}
+  .brg{display:grid;place-items:center}
+  .hero__i{grid-template-columns:1fr;gap:52px}
+  .hero__vis{max-width:620px;margin-inline:auto;width:100%}
+  .tch{grid-template-columns:1fr;gap:44px}
+  .tch__c{max-width:400px;margin-inline:auto}
+  .g-main{grid-template-columns:1fr}
+  .g6,.axs{grid-template-columns:repeat(2,1fr)}
+  .kpis,.g4,.sts,.lvs{grid-template-columns:repeat(2,1fr)}
+  .st:nth-child(2){border-inline-end:0}
+  .st{border-block-end:1px solid var(--line2)}
+  .ft__g{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:1024px){
+  .app{grid-template-columns:1fr}
+  .sb{position:static;height:auto;flex-direction:row;overflow-x:auto;gap:8px;padding:12px;
+    border-inline-end:0;border-block-end:1px solid var(--line);scrollbar-width:none}
+  .sb::-webkit-scrollbar{display:none}
+  .sb .br,.sb__lb,.sb__ft{display:none}
+  .sb__l{white-space:nowrap;padding:9px 15px}
+  .sb__l .cnt{margin-inline-start:6px}
+  .g-side{grid-template-columns:1fr}
+  .bento{grid-template-columns:repeat(4,1fr)}
+  .bx--lesson{grid-column:span 4}.bx--quiz{grid-column:span 2;grid-row:span 3}
+  .bx--notes,.bx--att{grid-column:span 2}
+  .chip-f{display:none}
+  .res__st{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:760px){
+  :root{--hdh:68px;--r4:22px;--r5:28px}
+  body{font-size:15.5px}
+  .g2,.g3,.g4,.g5,.g6,.kpis,.sts,.lvs,.axs,.ft__g,.qn__x,.bento{grid-template-columns:1fr}
+  .sts{margin-block-start:-28px}
+  .st{border-inline-end:0}
+  .bx--lesson,.bx--quiz,.bx--notes,.bx--att{grid-column:span 1;grid-row:auto}
+  .bx--quiz{min-height:280px}
+  .mn{padding:20px 16px 60px}
+  .cd{padding:20px;border-radius:var(--r3)}
+  .sec{padding-block:56px}
+  .top__l .top__it:nth-child(n+3){display:none}
+  .waf{width:54px;height:54px;inset-block-end:20px;inset-inline-end:18px}
+  .totop{display:none}
+  .lsw button{flex:1;justify-content:center;padding:11px 14px}
+  .lsw button small{display:none}
+  .hero__cta .btn{flex:1}
+  .mdl{padding:12px;align-items:end}
+  .mdl__b{max-height:94vh;border-radius:var(--r4) var(--r4) 0 0}
+  .tch__cd{position:static;margin-block-start:14px;animation:none}
+  .tch__cd--1,.tch__cd--2{inset:auto}
+  .ft__wm{font-size:4.5rem;inset-block-end:-14px}
+  .hm i{width:11px;height:11px}
+  .stk__w{display:none}
+  .qz__b,.qz__hd,.qz__bar,.qz__ft{padding-inline:20px}
+  .res__rg{width:150px;height:150px}
+  .res__n{font-size:2.1rem}
+  .btn--lg{padding:15px 26px;font-size:.98rem;width:100%}
+}
+@media (max-width:420px){
+  .br__t{display:none}
+  .hd__i{gap:10px}
+  .kpi__n{font-size:1.7rem}
+}
+/* ── IMPRESSION ── */
+@media print{
+  .hd,.top,.ft,.waf,.totop,.toasts,.cmp,.rdp,.cta,.viewbar,.sb,.mn__a,.btn,.tabs{display:none!important}
+  body{background:#fff;color:#000;font-size:11pt}
+  .app{display:block}
+  .mn{padding:0}
+  .cd,.kpi,.chart,.tte,.tb{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
+  .sec{padding-block:14px}
+  a[href]::after{content:""}
+  .tb{min-width:0}
+  @page{margin:1.4cm;size:A4}
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   NAVIGATION MOBILE (panneau déroulant)
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width:1240px){
+  .nv{display:none}
+  .nv.open{display:flex;position:fixed;inset-block-start:0;inset-inline:0;z-index:70;flex-direction:column;
+    align-items:stretch;gap:4px;background:var(--surface);padding:84px 20px 26px;
+    border-block-end:1px solid var(--line);box-shadow:var(--s4);max-height:90vh;overflow-y:auto;
+    animation:slideDown .35s var(--e2) both}
+  .nv.open .nv__l{padding:15px 17px;font-size:1.02rem;border-radius:13px}
+  .nv.open .nv__l.on::after{display:none}
+  .nv.open .nv__l.on{background:var(--ac-tint)}
+  .hd__t .btn--sm{display:none}
+}
+@media (max-width:760px){
+  .hd__t #pkSearch{display:none}
+  .nv.open{padding-block-start:74px}
+}

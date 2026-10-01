@@ -1,0 +1,14 @@
+{
+  "name": "prof-kerdjidj-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "اختبارات المنصّة — تتحقق من كل الصفحات ومحرك التمارين وحفظ الإعدادات",
+  "scripts": {
+    "test": "node run-all.mjs",
+    "serve": "python3 -m http.server 4322 --bind 0.0.0.0 --directory .."
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}
