@@ -216,7 +216,7 @@ function render(mn){
         <div class="la" style="font-size:1.8rem;font-weight:800;line-height:1.1">${DAYS[next.day||'sat'][ar()?1:1]}</div>
         <div class="la" style="font-size:1.1rem;opacity:.9;margin-block-start:4px">${next.start} – ${next.end}</div>
         <div style="margin-block-start:16px;padding-block-start:14px;border-block-start:1px solid rgba(255,255,255,.24);font-size:.88rem">
-          <b>${next.name}</b> · ${L_(D.byId(D.levels,next.level).ar, D.byId(D.levels,next.level).fr)}
+          <b>${next.name||L_('لا حصة قادمة','Aucune séance à venir')}</b> · ${L_(D.levelOf(next.level).ar, D.levelOf(next.level).fr)}
         </div>
         <div style="font-size:.83rem;opacity:.86;margin-block-start:5px;display:flex;align-items:center;gap:7px">
           ${svg('school','width="14" height="14"')}${L_(next.schoolAr,next.schoolFr)}</div>

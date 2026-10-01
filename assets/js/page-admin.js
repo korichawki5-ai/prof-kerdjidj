@@ -419,7 +419,7 @@ function qbPreview(){
     <div class="cd__h"><div class="cd__t" data-i18n="qbPrev">${t('qbPrev')}</div><span class="bd bd--ok">${svg('eye','width="12" height="12"')}${L_('مباشر','live')}</span></div>
     <div class="cd cd--flat" style="background:var(--bg2);padding:0;overflow:hidden">
       <div class="qz__bar" style="padding:12px">
-        <span class="bd bd--lv ${D.byId(D.levels,QB.level).cls}">${QB.level}</span>
+        <span class="bd bd--lv ${D.levelOf(QB.level).cls}">${QB.level}</span>
         <span class="bd bd--gy la">${QB.questions.length} ${t('exQ')}</span>
         <span class="qz__tm" style="position:static">${svg('timer','width="15" height="15"')}<span class="la">${QB.min}:00</span></span>
       </div>
@@ -530,7 +530,7 @@ function lessons(){
       const ex=D.exercises.filter(e=>e.lessonId===l.id).length;
       const ax=D.axes.find(a=>a.id===l.ax);
       return `<div class="lsn rv" data-lesson="${l.id}">
-        <div class="lsn__t"><span class="lv__b ${D.byId(D.levels,l.level).cls}">${l.level}</span>
+        <div class="lsn__t"><span class="lv__b ${D.levelOf(l.level).cls}">${l.level}</span>
           <span class="bd bd--gy">${ax?L_(ax.ar,ax.fr):(AXFR[l.ax]||l.ax)}</span>
           ${l.isNew?`<span class="bd bd--ac">${svg('spark','width="11" height="11"')}${t('lsNew')}</span>`:''}
           <span class="bd ${l.done?'bd--ok':'bd--wn'}" style="margin-inline-start:auto">${l.done?t('lsPub'):t('lsDraft')}</span></div>
@@ -665,6 +665,21 @@ function moduleFromHash(){
 }
 
 function render(mn){
+  /* Filet de sécurité : toute erreur d'affichage montre une carte lisible
+     (avec l'erreur exacte) au lieu d'un panneau vide. */
+  try{ return renderInner(mn); }
+  catch(err){
+    console.error('[PK] panneau admin :', err);
+    mn.innerHTML = `<section class="gate"><div class="gate__c">
+      <span class="gate__ic">${svg('x','width="30" height="30"')}</span>
+      <h2>${t('errTitle')||'حدث خطأ'}</h2>
+      <p class="gate__err" dir="ltr" style="text-align:start">${(err&&err.message)||err}</p>
+      <button type="button" class="btn btn--p btn--blk mt4" onclick="location.reload()">${t('errReload')||'إعادة المحاولة'}</button>
+      <a class="gate__lnk" href="/index.html">${t('viewPublic')}</a>
+    </div></section>`;
+  }
+}
+function renderInner(mn){
   L = window.PKi18n.current();
   /* حماية اللوحة في الوضع الحيّ : role admin فقط */
   if(!window.PKdb.mock && !(window.PKdata.me && window.PKdata.me.role==='admin')){
@@ -707,7 +722,19 @@ function render(mn){
 function show(mn){
   const panel = $('#adPanel', mn) || $('#adPanel');
   const host = panel || mn;
-  host.innerHTML = `<div class="atab lpn" data-panel="${cur}">${MODS[cur].fn()}</div>`;
+  /* filet de sécurité : un module qui échoue affiche l'erreur, pas du vide */
+  try{
+    host.innerHTML = `<div class="atab lpn" data-panel="${cur}">${MODS[cur].fn()}</div>`;
+  }catch(err){
+    console.error('[PK] module « '+cur+' » :', err);
+    host.innerHTML = `<div class="atab lpn"><section class="gate"><div class="gate__c">
+      <span class="gate__ic">${svg('x','width=\"30\" height=\"30\"')}</span>
+      <h2>${t('errTitle')||'حدث خطأ'}</h2>
+      <p class="gate__err" dir="ltr" style="text-align:start">${(err&&err.message)||err}</p>
+      <button type="button" class="btn btn--p btn--blk mt4" onclick="location.reload()">${t('errReload')||'إعادة المحاولة'}</button>
+    </div></section></div>`;
+    return;
+  }
   const p = host.firstChild;
   if(MODS[cur].bind) MODS[cur].bind(p);
   $('#adTitle') && ($('#adTitle').textContent = MODS[cur].t());
@@ -1114,7 +1141,7 @@ function qbank(){
       <tbody>${qs.slice(0,18).map(({e,q})=>`<tr>
         <td dir="ltr" style="text-align:start;font-size:.87rem">${q.t.length>72?q.t.slice(0,72)+'…':q.t}</td>
         <td><span class="bd bd--gy">${AXFR[e.ax]||e.ax}</span></td>
-        <td><span class="bd bd--lv ${D.byId(D.levels,e.level).cls}">${e.level}</span></td>
+        <td><span class="bd bd--lv ${D.levelOf(e.level).cls}">${e.level}</span></td>
         <td><span class="diff diff--${q.d||1}"><i class="on"></i><i class="${(q.d||1)>=2?'on':''}"></i><i class="${(q.d||1)>=3?'on':''}"></i></span></td>
         <td><span class="qtype qtype--${q.tf!==undefined?'tf':'mcq'}">${q.tf!==undefined?t('tyTf'):(q.o?t('tyMcq'):t('qbAddFill'))}</span></td>
         <td class="la acc"><b>+${Math.round(X.CFG.xpBase*(X.CFG.multDiff[q.d||1]||1))}</b></td>

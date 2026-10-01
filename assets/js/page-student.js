@@ -97,7 +97,7 @@ function renderLsGrid(host){
   g.innerHTML=list.map(x=>`<article class="ls rv">
     <div class="ls__th">${svg(x.icon||(D.axes.find(a=>a.id===x.ax)||{icon:'book'}).icon)}</div>
     <div class="flex gap2 wrap-f">
-      <span class="bd bd--lv ${D.byId(D.levels,x.level).cls}">${x.level}</span>
+      <span class="bd bd--lv ${D.levelOf(x.level).cls}">${x.level}</span>
       <span class="bd bd--gy">${axName(x.ax)}</span>
       ${x.done?`<span class="bd bd--ok">${svg('checkc','width="11" height="11"')}${t('lsDone')}</span>`:''}
       ${x.isNew?`<span class="bd bd--ac">${svg('spark','width="11" height="11"')}${t('lsNew')}</span>`:''}
@@ -142,7 +142,7 @@ function lessonPage(){
     <div style="min-width:0;display:flex;flex-direction:column;gap:20px">
       <div class="cd rv">
         <div class="flex gap2 wrap-f mb4">
-          <span class="bd bd--lv ${D.byId(D.levels,l.level).cls}">${l.level}</span>
+          <span class="bd bd--lv ${D.levelOf(l.level).cls}">${l.level}</span>
           <span class="bd bd--gy">${svg(ax.icon,'width="12" height="12"')}${axName(l.ax)}</span>
           <span class="bd bd--gy la">${svg('clock','width="12" height="12"')}${l.min} min</span>
           ${l.done?`<span class="bd bd--ok">${svg('checkc','width="12" height="12"')}${t('lsDone')}</span>`:''}
@@ -260,7 +260,7 @@ function renderExGrid(host){
     const best=X.bestOf?X.bestOf(m,x.id):null;
     return `<div class="cd cd--h rv">
       <div class="flex gap2 wrap-f mb4">
-        <span class="bd bd--lv ${D.byId(D.levels,x.level).cls}">${x.level}</span>
+        <span class="bd bd--lv ${D.levelOf(x.level).cls}">${x.level}</span>
         <span class="bd bd--gy">${axName(x.ax)}</span>
         <span class="qtype qtype--${x.type==='mixed'?'mcq':x.type}">${t('ty'+x.type.charAt(0).toUpperCase()+x.type.slice(1))}</span>
         <span class="diff diff--${x.diff}" style="margin-inline-start:auto"><i class="on"></i><i class="${x.diff>=2?'on':''}"></i><i class="${x.diff>=3?'on':''}"></i></span>
@@ -558,7 +558,7 @@ function profile(){
         <div class="cd__t mt4" style="font-size:1.1rem">${L_(m.ar,m.fr)}</div>
         <div class="cd__s la">${m.fr}</div>
         <div class="flex gap2 mt4" style="justify-content:center;flex-wrap:wrap">
-          <span class="bd bd--lv ${D.byId(D.levels,m.level).cls}">${m.level}</span>
+          <span class="bd bd--lv ${D.levelOf(m.level).cls}">${m.level}</span>
           <span class="bd">${svg('school','width="12" height="12"')}${g.name||m.group}</span>
           <span class="bd ${m.linked?'bd--ok':'bd--wn'}">${m.linked?t('stuLinked'):t('stuNotLinked')}</span>
         </div>

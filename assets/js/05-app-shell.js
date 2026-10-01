@@ -333,7 +333,32 @@ function bootApp(role, active, opts, render){
   document.addEventListener('DOMContentLoaded', ()=>{
     boot(null);                       // injecte sprite + palette + raccourcis
     const mn = mountApp(role, active, opts);
-    const doRender = (m)=>{ if(render) render(m||mn); replayFx(m||mn); initReveal(m||mn); };
+    /* Filet de sécurité : si le rendu d'une page échoue, on AFFICHE l'erreur
+       (avec un bouton « recharger ») au lieu de laisser un écran blanc. */
+    const renderFallback = (box, e)=>{
+      if(!box) return;
+      const msg = (e && (e.message || e.toString())) || 'Erreur inconnue';
+      box.innerHTML = `<section class="gate"><div class="gate__c">
+        <span class="gate__ic">${svg('x','width="30" height="30"')}</span>
+        <h2>${t('errTitle')||'حدث خطأ'}</h2>
+        <p class="gate__s">${t('errSub')||''}</p>
+        <p class="gate__err" dir="ltr" style="text-align:start">${msg}</p>
+        <button type="button" class="btn btn--p btn--blk btn--lg mt4" data-retry>${t('errReload')||'إعادة المحاولة'}</button>
+        <a class="gate__lnk" href="/index.html">${t('viewPublic')}</a>
+      </div></section>`;
+      const b = box.querySelector('[data-retry]');
+      if(b) b.addEventListener('click', ()=> location.reload());
+    };
+    const doRender = (m)=> {
+      const box = m||mn;
+      try{
+        if(render) render(box);
+        replayFx(box); initReveal(box);
+      }catch(err){
+        console.error('[PK] rendu impossible :', err);
+        renderFallback(box, err);
+      }
+    };
     document.addEventListener('pk:lang', ()=>{
       const host = $('#app');
       host.innerHTML = sidebar(role, active) + `<main class="mn" id="mn"></main>`;
@@ -347,6 +372,12 @@ function bootApp(role, active, opts, render){
        ou le CDN Firebase tarde (ou échoue) — puis rendu enrichi après hydratation. */
     doRender();
     window.PKdb.init().then(()=>{ doRender(); }, ()=>{ doRender(); });
+    /* erreurs asynchrones : jamais de silence total */
+    window.addEventListener('error', ev=>{
+      const box = document.getElementById('mn');
+      if(!box || box.innerHTML.trim()) return;
+      renderFallback(box, ev.error || ev.message);
+    }, {once:true});
     document.addEventListener('pk:me', ()=>{
       const host=$('#app');
       if(host && role==='student'){ host.innerHTML = sidebar(role, active) + `<main class="mn" id="mn"></main>`; bindDelegated(); }

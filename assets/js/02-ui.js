@@ -5,6 +5,19 @@
    ══════════════════════════════════════════════════════════════════ */
 (function(){
 "use strict";
+
+/* ───────── SUBSTITUT D'IntersectionObserver ─────────
+   Certains navigateurs (iOS ancien, WebView, mode économie) ne l'ont pas.
+   Sans lui, l'interface levait une exception et la page restait vide :
+   ici on installe un substitut minimal qui affiche tout immédiatement. */
+if(!('IntersectionObserver' in window)){
+  window.IntersectionObserver = function(cb){
+    return {
+      observe(el){ try{ cb([{isIntersecting:true, target:el}], this); }catch(e){} },
+      unobserve(){}, disconnect(){}, takeRecords(){ return []; }
+    };
+  };
+}
 const $  = (s,c)=> (c||document).querySelector(s);
 const $$ = (s,c)=> Array.from((c||document).querySelectorAll(s));
 const store = {
@@ -397,6 +410,7 @@ function initReveal(root){
   setTimeout(()=>$$('.rv-init').forEach(reveal), 3200);
 }
 function initCounters(root){
+  if(!('IntersectionObserver' in window)) return;   /* navigateur ancien : on laisse les chiffres finaux */
   $$('.cnt-up', root||document).forEach(el=>{
     if(el.dataset.done) return;
     const to = parseFloat(el.dataset.to||'0'), dec = +(el.dataset.dec||0), dur = +(el.dataset.dur||1600);

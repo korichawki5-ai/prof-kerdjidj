@@ -531,6 +531,9 @@ window.I18N = {
   /* ── Divers ── */
   page404:["الصفحة غير موجودة","Page introuvable"], page404s:["يبدو أن الرابط الذي تتبعته لم يعد موجوداً.",
            "Le lien que vous avez suivi n'existe plus."], backHome:["العودة للرئيسية","Retour à l'accueil"],
+  errTitle:["حدث خطأ غير متوقّع","Une erreur est survenue"],
+  errSub:["لم تُعرض هذه الصفحة بسبب خطأ تقني. اضغط الزر للمحاولة مرة أخرى.","Cette page n'a pas pu s'afficher. Réessayez."],
+  errReload:["إعادة المحاولة","Réessayer"],
   viewPublic:["الموقع العام","Site public"], viewStudent:["فضاء التلميذ","Espace élève"], viewAdmin:["لوحة الإدارة","Administration"],
 
   /* ── ADMIN · modules & onglets ── */

@@ -683,5 +683,73 @@ sec("12 · Inscription élève : profil complet, jamais de document partiel");
   ck("Admin mobile : onglets compacts ≤760 px", /#adTabs>button\{padding:10px 13px;font-size:\.82rem/.test(resp2));
 }
 
+/* ═══════════ 13. COMPTE CONNECTÉ RÉEL : aucun écran blanc ═══════════
+   Reproduit exactement la panne signalée : la professeure (role admin,
+   sans groupe) ouvre les pages élève → le rendu tombait sur un niveau
+   inconnu et la page restait BLANCHE. Chaque écran doit se dessiner. */
+sec("13 · Compte connecté (admin, sans groupe) : tous les écrans se dessinent");
+{
+  const ADMIN_ME = { id:"uA", uid:"uA", cardId:null, role:"admin", level:null, interests:[], onboarded:false,
+    ar:"الأستاذة", fr:"Prof", email:"a@b.c", photoURL:null, group:null, school:null, linked:false,
+    color:"#1E4FD8", xp:0, streak:0, best:0, lessonsDone:0, exDone:0, quizDone:0, correct:0, answered:0,
+    minutes:0, mastery:{}, badges:[], doneIds:[] };
+  const seedA = JSON.parse(JSON.stringify(SEED)); seedA.me = ADMIN_ME;
+  /* niveaux inconnus volontaires : la tolérance doit tenir */
+  seedA.groups[0].level = "9AM";
+  if (seedA.lessons[0]) seedA.lessons[0].level = "7AM";
+
+  for (const page of ["student/index.html","student/lessons.html","student/exercises.html",
+                      "student/progress.html","student/timetable.html","student/announcements.html",
+                      "student/profile.html"]) {
+    const { dom, errs } = await boot(page, { seed: seedA });
+    await wait(900);
+    const h = helpers(dom);
+    const mn = h.q("#mn");
+    const len = mn ? mn.innerHTML.trim().length : 0;
+    ck("Écran dessiné : " + page, len > 800, len + " caractères");
+    ck("Aucune carte d'erreur : " + page, !h.q(".gate__err"));
+    ck("Aucune erreur JS : " + page, errs.length === 0, errs[0] || "");
+    dom.window.close();
+  }
+
+  /* le panneau d'administration : les 11 modules, avec l'enseignante connectée */
+  const a = await boot("admin/index.html", { seed: seedA });
+  await wait(900);
+  const ha = helpers(a.dom);
+  const mods = ["overview","lessons","students","groups","tt","quiz","bank","prog","announce","messages","settings"];
+  for (const m of mods) {
+    const btn = ha.q('[data-atab="' + m + '"]');
+    if (!btn) { ck("Onglet présent : " + m, false); continue; }
+    ha.click(btn); await wait(160);
+    const panel = ha.q("#adPanel");
+    const len = panel ? panel.innerHTML.trim().length : 0;
+    const errCard = panel && panel.querySelector(".gate__err");
+    ck("Module rendu : " + m, len > 400 && !errCard, len + " car." + (errCard ? " | " + errCard.textContent.slice(0,60) : ""));
+  }
+  ck("Panneau admin : aucune erreur JS", a.errs.length === 0, a.errs[0] || "");
+  a.dom.window.close();
+}
+
+/* ═══════════ 14. GARDE-FOUS PERMANENTS ═══════════ */
+sec("14 · Garde-fous : plus jamais de page blanche");
+{
+  const R = f => fs.readFileSync(path.join(ROOT, f), "utf8");
+  const data = R("assets/js/03-data.js");
+  const shell3 = R("assets/js/05-app-shell.js");
+  const admin3 = R("assets/js/page-admin.js");
+  const ui3 = R("assets/js/02-ui.js");
+
+  ck("Niveau inconnu toléré (levelOf + valeur de repli)", /const levelOf = id => byId\(window\.PKdata\.levels, id\) \|\| LV_NONE;/.test(data));
+  ck("levelOf exporté par PKdata", /byId, levelOf, groupOf/.test(data));
+  ck("Plus aucun accès direct byId(D.levels,x).champ", !/byId\(D\.levels,\s*[\w.]+\s*\)\s*\./.test(
+      ["page-student.js","page-student-home.js","page-admin.js","page-index.js","page-public.js"]
+        .map(f => R("assets/js/" + f)).join("\n")));
+  ck("Substitut d'IntersectionObserver (navigateurs anciens)", /if\(!\('IntersectionObserver' in window\)\)\{/.test(ui3));
+  ck("Filet de rendu côté coquille (renderFallback)", /const renderFallback = \(box, e\)=>/.test(shell3));
+  ck("Écouteur d'erreurs globales", /window\.addEventListener\('error'/.test(shell3));
+  ck("Filet de rendu côté panneau admin (renderInner)", /function renderInner\(mn\)\{/.test(admin3) && /try\{ return renderInner\(mn\); \}/.test(admin3));
+  ck("Textes d'erreur traduits (AR/FR)", /errTitle:/.test(R("assets/js/00-i18n.js")) && /errReload:/.test(R("assets/js/00-i18n.js")));
+}
+
 console.log("\n\x1b[1m════ RÉSULTAT : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");
 process.exitCode = TF ? 1 : 0;

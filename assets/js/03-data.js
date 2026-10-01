@@ -116,6 +116,11 @@ const myMessages = [];    /* réponses de la professeure adressées à l'élève
 
 /* ───────── AIDES ───────── */
 const byId = (arr,id)=> arr.find(x=>x.id===id);
+/* Accès SÛR au niveau : ne renvoie jamais undefined — un identifiant inconnu
+   (élève sans groupe, professeure connectée, données incomplètes) ne doit
+   JAMAIS faire planter le rendu d'une page. */
+const LV_NONE = {id:'', cls:'lv-4am', ar:'—', fr:'—'};
+const levelOf = id => byId(window.PKdata.levels, id) || LV_NONE;
 const groupOf = sid => byId(window.PKdata.groups, sid);
 const slotAt  = (day,slot)=> window.PKdata.groups.find(g=>g.day===day && g.start===slot);
 const lessonsOf = lv => window.PKdata.lessons.filter(l=>l.level===lv);
@@ -124,5 +129,5 @@ const schoolName = (k,lang)=> (window.PKi18n ? window.PKi18n.t(k,lang) : k);
 
 return {settings, levels, axes, lessons, exercises, groups, slots, days, students, me, announcements, messages,
         users, progress, myMessages,
-        byId, groupOf, slotAt, lessonsOf, exercisesOf, schoolName};
+        byId, levelOf, groupOf, slotAt, lessonsOf, exercisesOf, schoolName};
 })();

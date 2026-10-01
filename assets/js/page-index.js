@@ -141,7 +141,7 @@ function exRow(x){
         <span class="diff diff--${x.diff}"><i class="${x.diff>=1?'on':''}"></i><i class="${x.diff>=2?'on':''}"></i><i class="${x.diff>=3?'on':''}"></i></span></small>
     </div>
     <div class="itm__s">
-      <span class="bd bd--lv ${D.byId(D.levels,x.level).cls}">${x.level}</span>
+      <span class="bd bd--lv ${D.levelOf(x.level).cls}">${x.level}</span>
       <span class="pill-xp">${svg('bolt','width="13" height="13"')}${x.xpMax} XP</span>
       <a class="btn btn--p btn--sm" href="student/exercise.html?id=${x.id}">${t('exStart')}</a>
     </div>
@@ -208,7 +208,7 @@ function sessionCard(g,d){
   return `<div class="ses ${g.cls} rv">
     <div class="ses__h la">${g.start}<br><span style="font-size:.75rem;opacity:.7">${g.end}</span></div>
     <div class="ses__b">
-      <b>${g.name} · ${L_(D.byId(D.levels,g.level).ar, D.byId(D.levels,g.level).fr)}</b>
+      <b>${g.name} · ${L_(D.levelOf(g.level).ar, D.levelOf(g.level).fr)}</b>
       <span>${svg('school')} ${L_(g.schoolAr,g.schoolFr)}</span>
       <span>${svg('user')} ${g.teacher} · ${svg('clock')} ${DAYS[d][ar()?'ar':'fr']}</span>
     </div>
