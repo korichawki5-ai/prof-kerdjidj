@@ -234,3 +234,43 @@
   .nv.open{max-height:88dvh}
   .gate{min-height:min(62dvh,560px)}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Correctifs ciblés v3 — porte élève + administration mobile
+   Le bloc 100dvh doit rester réservé à la barre latérale verticale.
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width:1024px){
+  .app:not(.app--gate){grid-template-columns:minmax(0,1fr)}
+  .app:not(.app--gate)>.sb{
+    position:static;height:auto;min-height:0;max-height:none;flex:0 0 auto;
+    overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain
+  }
+  .app.admin-shell .mn__a{
+    width:100%;min-width:0;display:flex;flex-wrap:wrap;align-items:center;
+    justify-content:flex-start;gap:8px
+  }
+  .app.admin-shell .mn__a>.btn{
+    flex:0 1 auto;min-width:0;max-width:100%;white-space:normal
+  }
+  .app.admin-shell .mn__a>.btn--i{
+    flex:0 0 44px;width:44px;height:44px;padding:0
+  }
+  .app.admin-shell #adTabs{
+    width:100%;min-width:0;max-width:100%;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+    scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain
+  }
+  .app.admin-shell #adTabs>button{flex:0 0 auto;scroll-snap-align:start}
+  .app.admin-shell #adTabs>.tabs__sp{flex:0 0 8px}
+}
+@media (max-width:760px){
+  .app.admin-shell #adTabs>button{padding:10px 12px;font-size:.84rem;gap:6px}
+  .app.admin-shell #adTabs>button svg{width:15px;height:15px}
+  .app.admin-shell .mn__a>.btn--sm{min-height:44px;padding:10px 12px}
+}
+@media (max-width:760px){
+  .gate{min-height:auto}
+}
+@media (max-width:560px){
+  .app.admin-shell .mn__a>.btn--sm{flex:1 1 calc(50% - 8px);padding:10px 8px}
+  .app.admin-shell .mn__a>.lgsw{margin-inline-start:auto}
+}

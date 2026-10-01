@@ -474,20 +474,51 @@ async function completeOnboarding(data){
     document.dispatchEvent(new CustomEvent('pk:me',{detail:D.me}));
     return {ok:true, mock:true};
   }
-  const u = currentUser();
-  if(!u) return {ok:false, message:friendlyError({code:'permission-denied'})};
-  const {ff} = FB;
-  const patch = {
-    level, interests, onboarded:true, onboardedAt:ff.serverTimestamp(),
-    name: name || (D.me && D.me.ar) || u.displayName || ''
-  };
-  /* On ne touche au rôle QUE s'il vaut encore 'pending' : écrire un rôle
-     absent ferait échouer la règle (champ non défini) → inscription bloquée. */
-  if(D.me && D.me.role === 'pending') patch.role = 'student';
   try{
-    await ff.updateDoc(ff.doc(db,'users',u.uid), patch);
-    await hydrateMe(u);
+    const u = currentUser();
+    if(!u) return {ok:false, message:friendlyError({code:'permission-denied'})};
+    if(!FB || !FB.ff || !db){
+      const e = new Error('firebase-not-ready'); e.code = 'unavailable'; throw e;
+    }
+    const {ff} = FB;
+    const savedName = name || (D.me && D.me.ar) || u.displayName || '';
+    const patch = {
+      level, interests, onboarded:true, onboardedAt:ff.serverTimestamp(), name:savedName
+    };
+    /* On ne touche au rôle QUE s'il vaut encore 'pending' : écrire un rôle
+       absent ferait échouer la règle (champ non défini) → inscription bloquée. */
+    if(D.me && D.me.role === 'pending') patch.role = 'student';
+    let timer;
+    try{
+      await Promise.race([
+        ff.updateDoc(ff.doc(db,'users',u.uid), patch),
+        new Promise((_,reject)=>{
+          timer = setTimeout(()=>{
+            const e = new Error('onboarding-save-timeout'); e.code = 'unavailable'; reject(e);
+          }, 15000);
+        })
+      ]);
+    }finally{ if(timer) clearTimeout(timer); }
+
+    /* الانتقال إلى فضاء التلميذ لا ينتظر تحميل الرسائل أو بيانات جانبية. */
+    const localMe = Object.assign({}, D.me || {}, {
+      id:u.uid, uid:u.uid, role:'student', level, interests, onboarded:true,
+      ar:savedName, fr:savedName, email:u.email || (D.me && D.me.email) || ''
+    });
+    D.me = localMe;
     document.dispatchEvent(new CustomEvent('pk:me',{detail:D.me}));
+
+    /* تحديث الخلفية يكمّل بقية الملف من Firestore من دون حجب زر التسجيل. */
+    hydrateMe(u).then(me=>{
+      if(!me){ D.me = localMe; return; }
+      D.me = Object.assign({}, localMe, me, {
+        role:'student', level, interests, onboarded:true, ar:savedName, fr:savedName
+      });
+      document.dispatchEvent(new CustomEvent('pk:me',{detail:D.me}));
+    }).catch(e=>{
+      console.warn('[PK] تحديث الملف بعد التسجيل:', e && e.code);
+      D.me = localMe;
+    });
     return {ok:true};
   }catch(e){ return reportError(e); }
 }

@@ -597,8 +597,9 @@ html[data-theme="dark"] .stk__n{color:#FFC94D}
 .gate__chk{display:flex;flex-wrap:wrap;gap:8px 18px}
 .gate__b.on{border-color:var(--ac);background:var(--ac-tint);box-shadow:0 0 0 3px var(--ac-soft)}
 .lrow{display:block;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--surface2)}
-.app--gate{grid-template-columns:1fr}
-.app--gate .mn{padding:0}
+.app--gate{grid-template-columns:minmax(0,1fr);min-width:0}
+.app--gate>.sb{display:none}
+.app--gate>.mn{grid-column:1/-1;width:100%;min-width:0;padding:0}
 .stick{position:sticky;top:90px}
 .stickb{position:sticky;bottom:0;background:var(--bg);z-index:5;padding:14px 0;
   border-block-start:1px solid var(--line)}

@@ -48,6 +48,8 @@ window.I18N = {
   onboardTitle:["معلوماتك الأولى","Vos premières informations"],
   onboardSub:["تُحفظ مرة واحدة، وتُستعمل لتخصيص دروسك وتمارينك ومواقيتك.","Enregistrées une fois, utilisées pour personnaliser vos cours, exercices et horaires."],
   onboardGo:["ابدأ الآن","Commencer"],
+  onboardSaving:["جارٍ حفظ معلوماتك…","Enregistrement de vos informations…"],
+  onboardFailed:["تعذّر حفظ معلوماتك. تحقّق من الاتصال ثم أعد المحاولة.","Impossible d’enregistrer vos informations. Vérifiez la connexion puis réessayez."],
   onboardDone:["تم إنشاء حسابك ✓ مرحباً بك!","Compte créé ✓ Bienvenue !"],
   resetSent:["أُرسل رابط استعادة كلمة المرور إلى بريدك — تحقّق من صندوق الوارد.","Lien de réinitialisation envoyé — vérifiez votre boîte mail."],
   adminLoginTitle:["دخول الأستاذة","Connexion de la professeure"],

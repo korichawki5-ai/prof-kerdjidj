@@ -521,7 +521,7 @@ sec("9 · Cohérence entre le code et firestore.rules");
         && /isAdm \? '' : `<form class="gate__form hide" id="authSignupForm"/.test(shell);
   })());
   ck("Panneau monté seulement après contrôle du rôle", /isDemo\(\) \|\| \(m && m\.role === 'admin'\)/.test(fs.readFileSync(path.join(ROOT,"assets/js/page-admin.js"),"utf8")));
-  ck("Écran admin pleine largeur (CSS)", /\.app--gate\{grid-template-columns:1fr\}/.test(fs.readFileSync(path.join(ROOT,"assets/css/05-app.css"),"utf8")));
+  ck("Écran admin pleine largeur (CSS)", /\.app--gate\{grid-template-columns:minmax\(0,1fr\);min-width:0\}/.test(fs.readFileSync(path.join(ROOT,"assets/css/05-app.css"),"utf8")));
 
   /* ── Navigation interne : liens absolus (dossiers ouverts en /admin ou /student) ── */
   const shell = fs.readFileSync(path.join(ROOT,"assets/js/05-app-shell.js"), "utf8");
@@ -651,6 +651,8 @@ sec("12 · Inscription élève : profil complet, jamais de document partiel");
   const fb = R("assets/js/04-firebase.js");
   const rules = R("firestore.rules");
   const comp = R("assets/css/02-components.css");
+  const appCss = R("assets/css/05-app.css");
+  const shell = R("assets/js/05-app-shell.js");
   const resp2 = R("assets/css/07-responsive.css");
 
   ck("Inscription e-mail : le profil complet est créé (syncProfile)", /await syncProfile\(cred\.user\);/.test(fb));
@@ -681,6 +683,14 @@ sec("12 · Inscription élève : profil complet, jamais de document partiel");
   ck("Onglets : état actif visible (.on)", /\.tab\.on,\.tabs>button\.on\{background:var\(--surface\);color:var\(--ac\)/.test(comp));
   ck("Admin mobile : 11 onglets en défilement horizontal", /#adTabs\{flex-wrap:nowrap;overflow-x:auto/.test(resp2));
   ck("Admin mobile : onglets compacts ≤760 px", /#adTabs>button\{padding:10px 13px;font-size:\.82rem/.test(resp2));
+  ck("La barre latérale est masquée pendant l'inscription sur tout écran", /\.app--gate>\.sb\{display:none\}/.test(appCss));
+  ck("Le formulaire étudiant occupe toute la largeur", /\.app--gate>\.mn\{grid-column:1\/-1;width:100%;min-width:0;padding:0\}/.test(appCss));
+  const responsiveTail = resp2.slice(resp2.lastIndexOf("@supports (height:100dvh)"));
+  ck("Le correctif 100dvh ne laisse plus un vide sous le menu mobile", /@media \(max-width:1024px\)[\s\S]*?\.app:not\(\.app--gate\)>\.sb\{[\s\S]*?height:auto/.test(responsiveTail));
+  ck("Barre d'actions admin : boutons icônes restent à 44 px", /\.app\.admin-shell \.mn__a>\.btn--i\{[\s\S]*?flex:0 0 44px;width:44px;height:44px/.test(resp2));
+  ck("Barre d'actions admin : boutons ne débordent pas", /\.app\.admin-shell \.mn__a>\.btn\{[\s\S]*?max-width:100%;white-space:normal/.test(resp2));
+  ck("Onboarding : le bouton soumet un vrai formulaire", /<form class="gate__onboard" id="onboardForm"/.test(shell) && /<button type="submit"[^>]*data-onboard-submit/.test(shell));
+  ck("Onboarding : erreurs asynchrones sont capturées et le bouton libéré", /form\.addEventListener\('submit', async e=>/.test(shell) && /catch\(e\)[\s\S]*?finally\{[\s\S]*?sub\.disabled = false;/.test(shell));
 }
 
 /* ═══════════ 13. COMPTE CONNECTÉ RÉEL : aucun écran blanc ═══════════
@@ -789,6 +799,61 @@ sec("15 · Inscription élève : écran de création, puis niveau + intérêts")
   }
   ck("Aucune erreur JS (profil partiel)", p1.errs.length === 0, p1.errs[0] || "");
   p1.dom.window.close();
+
+  /* a2) bouton réel : état d'attente, échec Firestore visible et réessayable */
+  const seedE = JSON.parse(JSON.stringify(SEED)); seedE.me = Object.assign({}, partial);
+  const pErr = await boot("student/index.html", { seed: seedE });
+  await wait(650);
+  const he = helpers(pErr.dom);
+  const submit = he.q("[data-onboard-submit]");
+  ck("Onboarding : bouton relié à un formulaire submit", !!he.q("#onboardForm") && submit && submit.type === "submit");
+  he.setVal("#onboardName", "ياسمين بن علي");
+  he.click(he.q('[data-level="4AM"]'));
+  let finishSave;
+  he.window.PKdb.completeOnboarding = () => new Promise(resolve => { finishSave = resolve; });
+  he.click(submit); await wait(60);
+  ck("النقر يعرض حالة الحفظ فوراً", submit.disabled && he.txt("#onboardStatus") === he.window.PKi18n.t("onboardSaving"));
+  if(finishSave) finishSave({ok:false, message:"تعذّر الحفظ — فحص آلي."});
+  await wait(100);
+  ck("فشل الحفظ يظهر داخل الاستمارة", !!he.q("#gateErr") && !he.q("#gateErr").classList.contains("hide") && /تعذّر الحفظ/.test(he.txt("#gateErr")));
+  ck("بعد الفشل يعود الزر قابلاً لإعادة المحاولة", !submit.disabled && !submit.hasAttribute("aria-busy"));
+  he.window.PKdb.completeOnboarding = () => Promise.reject({code:"permission-denied"});
+  he.click(submit); await wait(80);
+  ck("الرفض غير المتوقع يعرض رسالة صلاحيات عربية", !he.q("#gateErr").classList.contains("hide") && /قواعد Firestore/.test(he.txt("#gateErr")));
+  ck("الرفض غير المتوقع لا يعلق الزر", !submit.disabled);
+  ck("Aucune erreur JS (échec inscription)", pErr.errs.length === 0, pErr.errs[0] || "");
+  pErr.dom.window.close();
+
+  /* a3) parcours du bouton du héros jusqu'à la page d'accueil élève */
+  const hero = await boot("index.html");
+  await wait(450);
+  const hh = helpers(hero.dom);
+  const heroStart = hh.q('.hero__cta a[href="student/index.html"]');
+  ck("Le bouton du héros mène au portail élève", !!heroStart);
+  hero.dom.window.close();
+  const seedFlow = JSON.parse(JSON.stringify(SEED)); seedFlow.me = null;
+  const pFlow = await boot("student/index.html", { seed: seedFlow });
+  await wait(550);
+  const hf = helpers(pFlow.dom);
+  hf.click(hf.q('[data-auth-tab="signup"]'));
+  hf.setVal('#authSignupForm [name="name"]', "تلميذ تجريبي");
+  hf.setVal('#authSignupForm [name="email"]', "nouveau@example.dz");
+  hf.setVal('#authSignupForm [name="password"]', "123456");
+  hf.window.PKdb.registerEmail = async (name,email)=>{
+    const me={id:"new-u",uid:"new-u",role:"student",level:null,interests:[],onboarded:false,ar:name,fr:name};
+    hf.window.PKdata.me=me;
+    hf.document.dispatchEvent(new hf.window.CustomEvent("pk:me",{detail:me}));
+    return {uid:"new-u",email};
+  };
+  hf.click(hf.q('#authSignupForm button[type="submit"]')); await wait(120);
+  ck("Après la création : l'étape des informations apparaît", !!hf.q("#onboardForm") && !hf.q("#authSignupForm"));
+  hf.click(hf.q('[data-level="3AM"]'));
+  hf.click(hf.q('[data-interest="group"]'));
+  hf.click(hf.q("[data-onboard-submit]")); await wait(180);
+  ck("Après « ابدأ الآن » : arrivée à l'accueil élève", !hf.q("#onboardForm") && hf.qa(".kpi").length > 0);
+  ck("Le niveau et l'intérêt sont enregistrés", hf.window.PKdata.me.level === "3AM" && JSON.stringify(hf.window.PKdata.me.interests) === '["group"]');
+  ck("Aucune erreur JS (parcours complet)", pFlow.errs.length === 0, pFlow.errs[0] || "");
+  pFlow.dom.window.close();
 
   /* b) écran de connexion : les DEUX onglets existent pour l'élève */
   const seedN = JSON.parse(JSON.stringify(SEED)); seedN.me = null;   /* visiteur non connecté */

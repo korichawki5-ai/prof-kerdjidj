@@ -210,18 +210,21 @@ function onboardScreen(){
     <span class="gate__ic">${svg('spark','width="34" height="34"')}</span>
     <h2>${t('onboardTitle')}</h2>
     <p class="gate__s">${t('onboardSub')}</p>
-    <div class="fld"><label>${t('authName')}</label>
-      <input class="inp" id="onboardName" type="text" autocomplete="name" value="${name.replace(/"/g,'&quot;')}" placeholder="${t('authNamePh')}"></div>
-    <div class="fld mt4"><label>${t('chooseLevelTitle')}</label>
-      <div class="gate__lv">${D.levels.map(l=>`<button type="button" class="gate__b ${l.cls}" data-level="${l.id}"><b>${window.PKi18n.current()==='ar'?l.ar:l.fr}</b></button>`).join('')}</div>
-      <span class="help">${t('chooseLevelSub')}</span></div>
-    <div class="fld mt4"><label>${t('authInterests')}</label>
-      <div class="gate__chk">
-        ${[['group','intGroup'],['private','intPrivate'],['self','intSelf']].map(([v,k])=>`
-          <label class="chk"><input type="checkbox" data-interest="${v}"><span>${t(k)}</span></label>`).join('')}
-      </div></div>
-    ${authErrorBox()}
-    <button type="button" class="btn btn--p btn--blk btn--lg mt5" data-onboard-submit>${t('onboardGo')}</button>
+    <form class="gate__onboard" id="onboardForm" novalidate>
+      <div class="fld"><label for="onboardName">${t('authName')}</label>
+        <input class="inp" id="onboardName" name="name" type="text" autocomplete="name" value="${name.replace(/"/g,'&quot;')}" placeholder="${t('authNamePh')}"></div>
+      <div class="fld mt4"><label>${t('chooseLevelTitle')}</label>
+        <div class="gate__lv">${D.levels.map(l=>`<button type="button" class="gate__b ${l.cls}" data-level="${l.id}"><b>${window.PKi18n.current()==='ar'?l.ar:l.fr}</b></button>`).join('')}</div>
+        <span class="help">${t('chooseLevelSub')}</span></div>
+      <div class="fld mt4"><label>${t('authInterests')}</label>
+        <div class="gate__chk">
+          ${[['group','intGroup'],['private','intPrivate'],['self','intSelf']].map(([v,k])=>`
+            <label class="chk"><input type="checkbox" data-interest="${v}"><span>${t(k)}</span></label>`).join('')}
+        </div></div>
+      ${authErrorBox()}
+      <p class="gate__s hide" id="onboardStatus" role="status" aria-live="polite"></p>
+      <button type="submit" class="btn btn--p btn--blk btn--lg mt5" data-onboard-submit aria-describedby="gateErr onboardStatus">${t('onboardGo')}</button>
+    </form>
     <button type="button" class="gate__lnk" data-logout>${t('sbOut')}</button>
     <a class="gate__lnk" href="/index.html">${svg('arrow','width="14" height="14"')} ${t('viewPublic')}</a>
   </div></section>`;
@@ -261,10 +264,18 @@ const PKgate = {
         signup.classList.toggle('hide', b.dataset.authTab!=='signup');
       }
     }));
-    const err = (msg)=>{
-      const box = $('#gateErr', mn);
+    const liveEl = selector=>{
+      const current = mn && mn.isConnected ? $(selector, mn) : null;
+      return current || document.querySelector(selector);
+    };
+    const setOnboardStatus = msg=>{
+      const box = liveEl('#onboardStatus');
       if(box){ box.textContent = msg || ''; box.classList.toggle('hide', !msg); }
-      if(msg) toast(msg, 'er', 5000);
+    };
+    const err = (msg)=>{
+      const box = liveEl('#gateErr');
+      if(box){ box.textContent = msg || ''; box.classList.toggle('hide', !msg); }
+      if(msg){ setOnboardStatus(''); toast(msg, 'er', 5000); }
     };
     /* connexion e-mail */
     const f1 = $('#authSigninForm', mn);
@@ -307,17 +318,42 @@ const PKgate = {
       level = b.dataset.level;
       $$('[data-level]', mn).forEach(x=> x.classList.toggle('on', x===b));
     }));
-    const sub = $('[data-onboard-submit]', mn);
-    if(sub) sub.addEventListener('click', async ()=>{
-      const name = ($('#onboardName', mn) || {}).value || '';
-      const interests = $$('[data-interest]', mn).filter(i=>i.checked).map(i=>i.dataset.interest);
-      if(!name.trim()){ err(t('authErrorName')); return; }
+    const form = $('#onboardForm', mn);
+    const sub = form && $('[data-onboard-submit]', form);
+    if(form && sub) form.addEventListener('submit', async e=>{
+      e.preventDefault();
+      if(sub.disabled) return;
+      const name = ($('#onboardName', form) || {}).value || '';
+      const interests = $$('[data-interest]', form).filter(i=>i.checked).map(i=>i.dataset.interest);
+      err('');
+      if(!name.trim()){ err(t('authErrorName')); $('#onboardName', form)?.focus(); return; }
       if(!level){ err(t('chooseLevelTitle')); return; }
       sub.disabled = true;
-      const r = await window.PKdb.completeOnboarding({name, level, interests});
-      sub.disabled = false;
-      if(r && r.ok){ toast(t('onboardDone'), 'ok', 3200); after_(); }
-      else if(r && r.message) err(r.message);
+      sub.setAttribute('aria-busy','true');
+      setOnboardStatus(t('onboardSaving'));
+      try{
+        const api = window.PKdb && window.PKdb.completeOnboarding;
+        if(typeof api !== 'function') throw new Error(t('onboardFailed'));
+        const r = await api.call(window.PKdb, {name, level, interests});
+        if(r && r.ok){
+          setOnboardStatus('');
+          toast(t('onboardDone'), 'ok', 3200);
+          after_();
+        }else{
+          err((r && r.message) || t('onboardFailed'));
+        }
+      }catch(e){
+        console.warn('[PK] حفظ معلومات التلميذ:', e);
+        let message = '';
+        try{ if(window.PKdb && typeof window.PKdb.friendlyError === 'function') message = window.PKdb.friendlyError(e); }catch(_){}
+        err(message || (e && e.message) || t('onboardFailed'));
+      }finally{
+        if(sub.isConnected){
+          sub.disabled = false;
+          sub.removeAttribute('aria-busy');
+        }
+        setOnboardStatus('');
+      }
     });
   }
 };
