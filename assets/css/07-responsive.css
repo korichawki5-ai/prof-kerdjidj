@@ -51,6 +51,17 @@
   .cta{padding:26px 20px}
   .mn__t{margin-block-end:16px}
   .g{gap:16px}
+  /* ── Héros sur téléphone : on garde le texte + 2 cartes utiles,
+        on masque les cartes de démonstration décoratives et les pastilles ── */
+  .hero__i{gap:22px}
+  .hero__vis{max-width:100%}
+  .bx--notes,.bx--att,.chip-f{display:none}
+  .bento{gap:12px;grid-auto-rows:auto}
+  .bx{padding:16px}
+  .bx--quiz{min-height:auto}
+  .hero__cta{margin-block-end:22px;gap:10px}
+  .hero__tr{gap:10px 14px;font-size:.85rem}
+  .hero__ld{font-size:.95rem}
   .top__l .top__it:nth-child(n+3){display:none}
   .waf{width:54px;height:54px;inset-block-end:20px;inset-inline-end:18px}
   .totop{display:none}

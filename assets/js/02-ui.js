@@ -370,6 +370,17 @@ function initReveal(root){
     en.forEach(x=>{ if(x.isIntersecting){ x.target.classList.add('in'); io.unobserve(x.target); } });
   },{rootMargin:'0px 0px -7% 0px', threshold:.06});
   els.forEach(e=>io.observe(e));
+  /* FILET DE SÉCURITÉ : l'animation d'apparition est décorative — elle ne doit
+     JAMAIS laisser un bloc invisible qui occupe quand même sa place à l'écran.
+     (1) 1,2 s : tout ce qui est déjà à l'écran devient visible ;
+     (2) 3,2 s : tout le reste devient visible, quoi qu'il arrive. */
+  const forceReveal = all => $$('.rv').forEach(e=>{
+    if(e.classList.contains('in')) return;
+    const r = e.getBoundingClientRect(), vh = window.innerHeight || 800;
+    if(all || (r.top < vh*1.1 && r.bottom > -60)) e.classList.add('in');
+  });
+  setTimeout(()=>forceReveal(false), 1200);
+  setTimeout(()=>forceReveal(true),  3200);
 }
 function initCounters(root){
   $$('.cnt-up', root||document).forEach(el=>{

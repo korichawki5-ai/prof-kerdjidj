@@ -599,6 +599,14 @@ sec("9 · Cohérence entre le code et firestore.rules");
     const fj = fs.readFileSync(path.join(ROOT,"firebase.json"), "utf8");
     return !/immutable/.test(fj) && /max-age=3600, must-revalidate/.test(fj);
   })());
+
+  /* ── Apparitions : jamais de bloc invisible qui occupe l'écran ── */
+  const uiSrc = fs.readFileSync(path.join(ROOT,"assets/js/02-ui.js"), "utf8");
+  ck("Filet de sécurité des apparitions (1,2 s à l'écran)", /setTimeout\(\(\)=>forceReveal\(false\), 1200\)/.test(uiSrc));
+  ck("Filet de sécurité des apparitions (3,2 s tout le reste)", /setTimeout\(\(\)=>forceReveal\(true\),\s*3200\)/.test(uiSrc));
+  ck("Héros mobile : cartes de démonstration masquées", /\.bx--notes,\.bx--att,\.chip-f\{display:none\}/.test(resp));
+  ck("Héros mobile : espacement du bloc visuel réduit", /\.hero__i\{gap:22px\}/.test(resp) && /\.bento\{gap:12px;grid-auto-rows:auto\}/.test(resp));
+  ck("Héros mobile : boutons d'appel à l'action resserrés", /\.hero__cta\{margin-block-end:22px;gap:10px\}/.test(resp));
 }
 
 /* ═══════════ 10. PORTE ÉLÈVE SUR MOBILE : aucun défilement pour s'inscrire ═══════════ */
