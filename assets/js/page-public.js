@@ -12,6 +12,10 @@ let L = 'ar'; const ar=()=>L==='ar'; const L_=(a,f)=>ar()?a:f;
 const DAYS={sat:['السبت','Samedi','Sam'],sun:['الأحد','Dimanche','Dim'],mon:['الاثنين','Lundi','Lun'],
             tue:['الثلاثاء','Mardi','Mar'],wed:['الأربعاء','Mercredi','Mer'],thu:['الخميس','Jeudi','Jeu']};
 const ini=n=>String(n).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+/* حماية العرض: لا « undefined » إن كان حقل ناقصاً في قاعدة البيانات */
+const esc=v=>(window.PK&&window.PK.esc)?window.PK.esc(v):String(v==null?'':v);
+const pubSum=l=>{ const v=L_(l&&l.sumAr,l&&l.sumFr); return (v==null||v==='')?'':String(v); };
+const pubLvCls=id=>{ const x=D.byId(D.levels,id); return x?x.cls:'lv-1am'; };
 
 /* ───────── En-tête de page interne ───────── */
 function pageHead(o){
@@ -160,7 +164,7 @@ function renderLessonGrid(){
         ${x.isNew?`<span class="bd bd--ac">${svg('spark','width="11" height="11"')}${t('lsNew')}</span>`:''}
       </div>
       <h3 class="ls__t" dir="ltr">${L_(x.ar,x.fr)}</h3>
-      <p class="muted" style="font-size:.88rem;line-height:1.75;flex:1">${L_(x.sumAr,x.sumFr)}</p>
+      ${pubSum(x) ? `<p class="muted" style="font-size:.88rem;line-height:1.75;flex:1">${pubSum(x)}</p>` : ''}
       <div class="ls__m">
         <span class="bd bd--gy la">${svg('clock','width="12" height="12"')}${x.min} ${t('lsMin')}</span>
         <span class="bd bd--gy la">${svg('file','width="12" height="12"')}${x.files||0} PDF</span>
@@ -264,7 +268,7 @@ function timetable(){
     D.days.forEach(d=>{
       const g=D.slotAt(d,slot);
       grid += g
-        ? `<div class="sl"><div class="blk ${g.cls}"><b>${g.name}</b><small>${L_(g.schoolAr,g.schoolFr)}</small><i class="la">${g.start}–${g.end}</i></div></div>`
+        ? `<div class="sl"><div class="blk ${g.cls||pubLvCls(g.level)}"><b>${esc(g.name||'')}</b><small>${esc(L_(g.schoolAr,g.schoolFr)||'')}</small><i class="la">${esc(g.start||'')}–${esc(g.end||'')}</i></div></div>`
         : `<div class="sl"></div>`;
     });
   });
@@ -313,14 +317,14 @@ function timetable(){
         <div class="cd__t mb4" data-i18n="ttSeats">${t('ttSeats')}</div>
         ${D.levels.map(l=>{
           const gs=D.groups.filter(g=>g.level===l.id);
-          const cap=gs.reduce((a,g)=>a+g.capacity,0), ins=gs.reduce((a,g)=>a+g.enrolled,0);
+          const cap=gs.reduce((a,g)=>a+(+g.capacity||0),0), ins=gs.reduce((a,g)=>a+(+g.enrolled||0),0);
           const pct=cap?Math.round(ins/cap*100):0;
           return `<div class="mb4"><div class="flex just-b" style="font-size:.88rem;margin-block-end:6px">
               <b>${l.id} · ${L_(l.ar,l.fr)}</b><span class="muted la">${ins}/${cap} (${pct}%)</span></div>
             <div class="prg"><i data-w="${pct}%" style="width:${pct}%"></i></div></div>`;}).join('')}
         <div class="cd cd--flat mt5" style="background:var(--ok-t);border-color:transparent;padding:14px">
           <b style="color:var(--ok-d)">${svg('checkc','width="15" height="15" style="display:inline;vertical-align:-2px"')}
-            ${D.groups.reduce((a,g)=>a+(g.capacity-g.enrolled),0)} ${t('grFree')}</b></div>
+            ${D.groups.reduce((a,g)=>a+((+g.capacity||0)-(+g.enrolled||0)),0)} ${t('grFree')}</b></div>
       </div>
       <div class="cd rv" style="--d:80ms">
         <div class="cd__t mb4" data-i18n="ttMode">${L_('كيف تُنظَّم الحصص؟','Comment s’organisent les séances ?')}</div>

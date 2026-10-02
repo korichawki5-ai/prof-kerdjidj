@@ -258,9 +258,9 @@ function finish(mn){
   const msg = pct>=90 ? t('exPerfect') : pct>=60 ? t('exGood') : t('exKeep');
   const col = pct>=80?'var(--ok)':pct>=50?'var(--wn)':'var(--er)';
 
-  // progression de maîtrise simulée pour la démo
-  const before = D.me.mastery[EX.ax] || 0;
-  const after  = Math.min(100, Math.round(before + (pct-before)*0.12));
+  /* إتقان المحور: قاعدة حقيقية واحدة (تُطبَّق محلياً وعلى Firestore) */
+  const before = (D.me.mastery && D.me.mastery[EX.ax]) || 0;
+  const after  = Math.max(before, pct);
 
   mn.innerHTML = `
   <div class="qz rv-s" style="max-width:820px;margin-inline:auto">
@@ -307,12 +307,20 @@ function finish(mn){
 
   <div class="cd mt5 rv" style="max-width:820px;margin-inline:auto" id="reviewBox"></div>`;
 
-  // enregistre (démo : console + Firestore si configuré)
-  window.PKdb.saveSubmission({
-    exerciseId:EX.id, studentId:D.me.id, level:EX.level, ax:EX.ax,
-    correct, total, pct, xp:r.xp, durationSec:used, attempts:1,
-    answers: EX.questions.map((q,i)=>({q:i, given:answers[i], ok:!!answers[i]}))
-  });
+  /* الحفظ: تلميذ بلا حساب → على جهازه (نتيجته الحقيقية) ؛ حساب قديم → Firestore */
+  if(window.PKlocal && window.PKlocal.active()){
+    window.PKlocal.logSubmission({
+      exerciseId:EX.id, level:EX.level, axis:EX.ax, type:EX.ax,
+      correct, total, pct, xp:r.xp, durationSec:used, timeLimit:EX.min*60, isQuiz:true
+    });
+    D.me = window.PKlocal.me();
+  } else if(D.me && D.me.id){
+    window.PKdb.saveSubmission({
+      exerciseId:EX.id, studentId:D.me.id, level:EX.level, ax:EX.ax,
+      correct, total, pct, xp:r.xp, durationSec:used, attempts:1,
+      answers: EX.questions.map((q,i)=>({q:i, given:answers[i], ok:!!answers[i]}))
+    });
+  }
   if(pct>=80) confetti(pct>=95?110:70);
   toast(`${t('exGain')} : +${r.xp} XP · ${pct}%`, pct>=80?'ok':'wn', 4200);
 

@@ -185,12 +185,15 @@ sec("2 · Même pages, avec du contenu « publié par la professeure » (graine)
 }
 
 /* ═══════════ 3. PORTE D'ENTRÉE ÉLÈVE : connexion puis niveau ═══════════ */
-sec("3 · Porte d'entrée : sans compte → connexion ; sans niveau → choix 1AM→4AM");
+sec("3 · Porte d'entrée élève : formulaire d'inscription SANS compte (nouveau) ; compte Google avec niveau → accès direct");
 {
   const { dom, errs } = await boot("student/index.html");
   await wait(520);
   const h = helpers(dom);
-  ck("Carte de connexion affichée", !!h.q(".gate [data-gate-login]"));
+  ck("Formulaire d'inscription affiché (aucun compte requis)", !!h.q(".gate [data-reg-form]"));
+  ck("Champs essentiels présents (nom · classe · téléphone)",
+     !!h.q("#rfName") && !!h.q("#rfLevel") && !!h.q("#rfPhone"));
+  ck("Aucun bouton « connexion Google » côté élève", !h.q(".gate [data-gate-login]"));
   ck("Aucun contenu d'élève fantôme", !/XP|سلسلة/.test(h.txt(".gate") || "") || true);
   ck("Aucune erreur JS", errs.length === 0, errs[0] || "");
   dom.window.close();
@@ -270,7 +273,7 @@ sec("6 · Panneau d'administration — 11 modules sur données semées");
   const { dom, errs } = await boot("admin/index.html", { seed: SEED });
   await wait(760);
   const h = helpers(dom);
-  ck("11 onglets", h.qa("[data-atab]").length === 11, h.qa("[data-atab]").length + "");
+  ck("12 onglets (dont « طلبات التسجيل »)", h.qa("[data-atab]").length === 12, h.qa("[data-atab]").length + "");
   const MODS = [
     ["overview", "Vue d'ensemble", () => [["8 KPI", h.qa(".kpi").length === 8], ["5 barres XP réelles", h.qa(".bars__b").length === 5], ["Top élèves semés", h.qa(".tb tbody tr").length >= 3], ["Flux = messages réels", h.qa(".feed .fd").length >= 1]]],
     ["tt", "Emploi du temps", () => [["Créneaux", h.qa(".tteg .hr").length === 5], ["2 séances semées", h.qa(".blk").length >= 2]]],

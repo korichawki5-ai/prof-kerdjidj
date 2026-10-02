@@ -576,6 +576,23 @@ html[data-theme="dark"] .stk__n{color:#FFC94D}
 .gate__b b{font-size:1.02rem}
 @media (max-width:560px){.gate__lv{grid-template-columns:1fr}}
 
+/* ── استمارة تسجيل التلميذ (بلا حساب) ── */
+.gate__c--f{max-width:660px;text-align:start}
+.gate__c--f>svg{margin-inline:auto;display:block}
+.gate__c--f h2,.gate__c--f>.gate__s{text-align:center}
+.regf{margin-block-start:20px;display:flex;flex-direction:column;gap:14px;text-align:start}
+.regf .req{color:var(--er);font-weight:800}
+.regf__trap{position:absolute!important;inset-inline-start:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
+.regf__err{background:var(--er-t);color:var(--er);border:1px solid var(--er);border-radius:14px;
+  padding:12px 14px;font-size:.88rem;line-height:1.85;overflow-wrap:anywhere}
+.regf__note{display:flex;gap:8px;align-items:flex-start;color:var(--tx2);font-size:.82rem;
+  line-height:1.85;margin:2px 0 0}
+.regf__note svg{flex:none;margin-block-start:3px}
+/* لافتة « التسجيل لم يصل » */
+.pend--er{border-color:var(--er);background:var(--er-t)}
+.pend--er b{color:var(--er)}
+@media (max-width:560px){.gate{padding:14px}.gate__c{padding:22px 16px}}
+
 /* ══════════════════════════════════════════════════════════════
    BANDEAU « COMPTE EN ATTENTE DE CONFIRMATION » (espace élève)
    ══════════════════════════════════════════════════════════════ */

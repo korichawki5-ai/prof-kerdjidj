@@ -11,6 +11,10 @@ rules_version = '2';
     · l'ÉCRITURE du contenu est réservée à la professeure (role admin) ;
     · la page « Contact » peut créer un message SANS compte, mais le
       document est strictement encadré (clés autorisées + tailles) ;
+    · l'INSCRIPTION de l'élève se fait SANS compte : la collection
+      « registrations » accepte uniquement la CRÉATION d'un document
+      strictement encadré ; personne ne peut la lire ni la modifier,
+      sauf la professeure (role admin) ;
     · AUCUNE note scolaire : uniquement de la progression (XP, maîtrise,
       séries, badges).
    ════════════════════════════════════════════════════════════════ */
@@ -132,6 +136,30 @@ service cloud.firestore {
       allow read:   if isAdmin() || (signed() && 'studentId' in resource.data && isMine(resource.data.studentId));
       allow create: if signed() && 'studentId' in request.resource.data && isMine(request.resource.data.studentId);
       allow update, delete: if isAdmin();
+    }
+
+    /* ───────── طلبات التسجيل (élève SANS compte) ─────────
+       Création libre et strictement encadrée : clés autorisées, longueurs
+       bornées, statut « new » imposé, horodatage serveur obligatoire.
+       Lecture / modification / suppression : la professeure seule.          */
+    match /registrations/{regId} {
+      allow create: if regShape()
+                    && request.resource.data.status == 'new'
+                    && request.resource.data.at == request.time;
+      allow read, update, delete: if isAdmin();
+    }
+    function regShape() {
+      return request.resource.data.keys().hasOnly(['name','level','birth','parentPhone','email','school','note','status','at'])
+          && request.resource.data.name is string && request.resource.data.name.size() >= 3
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.level is string && request.resource.data.level.size() <= 10
+          && request.resource.data.get('birth', '') is string && request.resource.data.get('birth', '').size() <= 10
+          && request.resource.data.get('parentPhone', '') is string
+          && request.resource.data.get('parentPhone', '').size() >= 9
+          && request.resource.data.get('parentPhone', '').size() <= 20
+          && request.resource.data.get('email', '') is string && request.resource.data.get('email', '').size() <= 120
+          && request.resource.data.get('school', '') is string && request.resource.data.get('school', '').size() <= 120
+          && request.resource.data.get('note', '') is string && request.resource.data.get('note', '').size() <= 600;
     }
 
     /* ───────── Présence aux séances : admin uniquement ───────── */

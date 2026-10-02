@@ -17,6 +17,10 @@ const AXAR = {grammaire:'القواعد',conjugaison:'تصريف الأفعال'
               comprehension:'فهم النص',expression:'التعبير الكتابي',oral:'التعبير الشفوي',
               methodology:'منهجية BEM',sujets:'مواضيع محلولة'};
 
+/* ── affichage sûr : une donnée absente ne doit JAMAIS écrire « undefined » ── */
+const nun = (v, d) => (typeof v === 'number' && !isNaN(v)) ? v : (d === undefined ? '—' : d);
+const exQn = x => (typeof x.q === 'number') ? x.q
+                 : (Array.isArray(x.questions) ? x.questions.length : '—');
 /* ── échappement + lecture des annonces réelles (aucune donnée inventée) ── */
 const esc = v => (window.PK && window.PK.esc) ? window.PK.esc(v) : String(v==null?'':v);
 function annTitle(a){ const c=(a.i18n&&typeof a.i18n==='object')?a.i18n:null;
@@ -158,11 +162,11 @@ function render(mn){
               <span class="ico">${svg('quiz')}</span>
               <div class="itm__b">
                 <b>${L_(x.titleAr,x.titleFr)}</b>
-                <small><span class="la">${x.q} ${t('exQ')}</span> · <span class="la">${x.min} min</span> · ${L_(ax.ar,ax.fr)}
-                  · <span class="diff diff--${x.diff}"><i class="on"></i><i class="${x.diff>=2?'on':''}"></i><i class="${x.diff>=3?'on':''}"></i></span></small>
+                <small><span class="la">${exQn(x)} ${t('exQ')}</span> · <span class="la">${nun(x.min)} min</span> · ${L_(ax.ar,ax.fr)}
+                  · <span class="diff diff--${nun(x.diff,1)}"><i class="on"></i><i class="${(x.diff||1)>=2?'on':''}"></i><i class="${(x.diff||1)>=3?'on':''}"></i></span></small>
               </div>
               <div class="itm__s">
-                <span class="pill-xp">${svg('bolt','width="13" height="13"')}≤${x.xpMax}</span>
+                <span class="pill-xp">${svg('bolt','width="13" height="13"')}≤${nun(x.xpMax,0)}</span>
                 <a class="btn btn--p btn--sm" href="exercise.html?id=${x.id}">${t('exStart')}</a>
               </div>
             </div>`;}).join('')}
@@ -181,10 +185,10 @@ function render(mn){
             return `<div class="itm ${x.done?'itm--done':''}">
               <span class="ico ico--sm ${x.done?'ico--ok':''}">${svg(x.done?'check':(x.icon||ax.icon))}</span>
               <div class="itm__b"><b>${L_(x.ar,x.fr)}</b>
-                <small>${svg('clock','width="13" height="13"')}<span class="la">${x.min} ${t('lsMin')}</span> · ${ax.fr}
+                <small>${svg('clock','width="13" height="13"')}<span class="la">${nun(x.min)} ${t('lsMin')}</span> · ${ax.fr}
                   ${x.files?` · ${svg('file','width="13" height="13"')}<span class="la">${x.files}</span>`:''}</small></div>
               <div class="itm__s">
-                <span class="pill-xp">${svg('bolt','width="13" height="13"')}+${x.xp}</span>
+                <span class="pill-xp">${svg('bolt','width="13" height="13"')}+${nun(x.xp,0)}</span>
                 <a class="btn btn--g btn--sm" href="lesson.html?id=${x.id}">${x.done?t('exReview'):t('lsStart')}</a>
               </div>
             </div>`;}).join('')}
@@ -273,18 +277,19 @@ function render(mn){
 
 /* ── heatmap d'activité ── */
 function renderHeatmap(s){
-  /* Avant : la carte d'activité était générée par hachage de l'identifiant
-     → une activité ENTIÈREMENT inventée s'affichait chez chaque élève.
-     Désormais : seuls les jours réels de la série en cours sont marqués. */
+  /* كل مربّع هنا = يوم نشاط حقيقي: إما من سجلّ الأيام الفعلي (تلميذ
+     مسجَّل على جهازه) أو من السلسلة الحالية. لا توليد بالهاش ولا بيانات وهمية. */
   const host = $('#hm'); if(!host) return;
+  const log = Array.isArray(s.log) && s.log.length ? new Set(s.log) : null;
   const streak = Math.max(0, Math.min(126, s.streak||0));
   let out='';
   for(let w=17; w>=0; w--){
     for(let d=0; d<7; d++){
       const back = w*7 + (6-d);
       const date = new Date(Date.now() - back*864e5);
-      const on = back < streak;
-      out += `<i data-l="${on?3:0}" title="${date.toISOString().slice(0,10)}${on?' ✓':''}"></i>`;
+      const key = date.toISOString().slice(0,10);
+      const on = log ? log.has(key) : (back < streak);
+      out += `<i data-l="${on?3:0}" title="${key}${on?' ✓':''}"></i>`;
     }
   }
   host.innerHTML = out;

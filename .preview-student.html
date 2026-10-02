@@ -56,8 +56,11 @@ window.__PK_SEED__ = {
 </head>
 <body>
 <div id="app"></div>
-<div style="position:fixed;inset-block-end:12px;inset-inline-start:12px;z-index:999;background:#1E4FD8;color:#fff;padding:8px 14px;border-radius:12px;font:700 12px/1.6 system-ui">
-  معاينة تجريبية — <a href=".preview-admin.html" style="color:#CDE0FF">لوحة الإدارة</a>
+<div style="position:fixed;inset-block-end:12px;inset-inline-start:12px;z-index:999;background:#1E4FD8;color:#fff;padding:8px 14px;border-radius:12px;font:700 12px/1.6 system-ui;display:flex;gap:10px;flex-wrap:wrap">
+  <span>معاينة تجريبية</span>
+  <a href="?form=1" style="color:#CDE0FF">استمارة التسجيل</a>
+  <a href="?" style="color:#CDE0FF">فضاء تلميذ مسجَّل</a>
+  <a href=".preview-admin.html" style="color:#CDE0FF">لوحة الإدارة</a>
 </div>
 <script src="assets/js/00-i18n.js"></script>
 <script src="assets/js/01-progression.js"></script>
@@ -65,18 +68,26 @@ window.__PK_SEED__ = {
 <script src="assets/js/03-data.js"></script>
 <script src="assets/js/04-firebase.js"></script>
 <script src="assets/js/05-app-shell.js"></script>
+<script src="assets/js/06-student-local.js"></script>
 <script src="assets/js/page-student-home.js"></script>
 <script>
-/* session de démonstration (compte « en attente de confirmation ») */
+/* معاينة: إما استمارة التسجيل (?form=1) أو فضاء تلميذ مسجَّل على هذا الجهاز.
+   البيانات هنا توضيحية للعرض فقط — وهي في الواقع تُكتب من استمارة التلميذ. */
 document.addEventListener('DOMContentLoaded', ()=>{
-  window.PKdb._testSession({
-    id:'demo', uid:'demo', role:'pending', level:'4AM', group:'g1',
-    ar:'أمين بلقاسم', fr:'Amine Belkacem', email:'amine@example.com',
-    xp:1450, streak:6, best:18, lessonsDone:2, exDone:3, quizDone:3,
-    correct:9, answered:12, minutes:75, mastery:{grammaire:82,conjugaison:64},
-    badges:['b1'], doneIds:['l1'], linked:false, color:'#1E4FD8'
-  });
-  document.dispatchEvent(new CustomEvent('pk:me', {detail: window.PKdata.me}));
+  const wantForm = new URLSearchParams(location.search).get('form') === '1';
+  if(wantForm){ window.PKlocal.clear(); }
+  else if(!window.PKlocal.active()){
+    window.PKlocal.register({
+      name:'أمين بلقاسم', level:'4AM', birth:'2010-03-12',
+      parentPhone:'0555 00 00 00', email:'amine@example.com',
+      school:'متوسطة الأمير عبد القادر', note:'أرغب في حصص يوم السبت'
+    }, {sent:true});
+    window.PKlocal.logLesson('l1', 25);
+    window.PKlocal.logSubmission({exerciseId:'e1', level:'4AM', axis:'grammaire', type:'grammaire',
+      correct:3, total:3, pct:100, xp:118, durationSec:120, timeLimit:600, isQuiz:true});
+    window.PKlocal.logSubmission({exerciseId:'e1', level:'4AM', axis:'conjugaison', type:'conjugaison',
+      correct:2, total:3, pct:67, xp:54, durationSec:260, timeLimit:600, isQuiz:true});
+  }
 });
 </script>
 </body>

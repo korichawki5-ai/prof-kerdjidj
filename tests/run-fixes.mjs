@@ -243,6 +243,30 @@ sec("6 · Données incomplètes : ni plantage ni « undefined »");
   ck("Fiche élève incomplète : aucune erreur JS", a.errs.length === 0, a.errs[0] || "");
   ck("Fiche élève incomplète : aucun « undefined »", g.noUndef());
   a.dom.window.close();
+
+  /* cours sans résumé + groupe sans classe/effectifs → rien ne doit casser */
+  const SEED2 = {
+    lessons: [{ id:"LL1", level:"4AM", ar:"درس بلا ملخّص", fr:"Leçon sans résumé" }],
+    exercises: [],
+    groups: [{ id:"g1", name:"فوج بلا تفاصيل" }],
+    students: [], announcements: [],
+    me: { id:"me1", uid:"me1", role:"student", level:"4AM", ar:"أمين", fr:"Amine",
+          group:"g1", xp:0, streak:0, mastery:{}, badges:[], doneIds:[] }
+  };
+  const l = await boot("student/lessons.html", { seed: SEED2 });
+  await wait(700);
+  const hl = H(l.dom);
+  ck("Cours sans résumé : la carte s'affiche sans « undefined »", !/undefined/.test(hl.txt()) && hl.txt().includes("درس بلا ملخّص"));
+  ck("Cours sans résumé : aucune erreur JS", l.errs.length === 0, l.errs[0] || "");
+  l.dom.window.close();
+
+  const tt = await boot("timetable.html", { seed: SEED2 });
+  await wait(700);
+  const ht = H(tt.dom);
+  ck("Groupe sans classe ni effectifs : aucun « undefined » ni « NaN »",
+     !/undefined/.test(ht.txt()) && !/\bNaN\b/.test(ht.txt()));
+  ck("Groupe sans classe ni effectifs : aucune erreur JS", tt.errs.length === 0, tt.errs[0] || "");
+  tt.dom.window.close();
 }
 
 /* ══════════ 7. RÈGLES FIRESTORE ══════════ */
@@ -260,6 +284,15 @@ sec("7 · Règles Firestore : sécurité et cohérence");
   ck("Rôle admin impossible à s'auto-attribuer", /role in \['pending','student'\]/.test(r));
   ck("Message public du formulaire encadré (msgShape)", /function msgShape\(/.test(r));
   ck("Refus par défaut conservé", /match \/\{document=\*\*\}/.test(r));
+  /* ── inscription sans compte (nouveau) ── */
+  ck("Collection registrations : création encadrée par regShape()",
+     /match \/registrations\/\{regId\}[\s\S]{0,200}allow create: if regShape\(\)/.test(r));
+  ck("registrations : lecture/modification réservées à l'admin",
+     /match \/registrations\/\{regId\}[\s\S]{0,400}allow read, update, delete: if isAdmin\(\)/.test(r));
+  ck("regShape borne les champs et impose le statut « new » + l'horodatage serveur",
+     /function regShape\(\)/.test(r) && /status == 'new'/.test(r) && /request\.resource\.data\.at == request\.time/.test(r));
+  ck("registrations : aucune écriture publique au-delà de la création",
+     !/match \/registrations[\s\S]{0,400}allow (write|update|delete)[^;]*if true/.test(r));
 }
 
 /* ══════════ 8. SEO / DÉPLOIEMENT ══════════ */
@@ -293,6 +326,143 @@ sec("9 · Traductions : aucune valeur manquante");
   ck("Clés ajoutées pour les nouveaux écrans", ["pendingTitle","admPending","lsEdPublish","anPublishF","stuNewT"].every(k => k in I18N));
   const badVal = Object.keys(I18N).filter(k => I18N[k].some(x => /undefined/.test(x)));
   ck("Aucune valeur traduite ne contient « undefined »", badVal.length === 0, badVal.join(", "));
+}
+
+/* ══════════ 10. INSCRIPTION SANS COMPTE + PROGRESSION LOCALE ══════════ */
+sec("10 · Inscription sans compte : formulaire → professeure → progression locale");
+{
+  const S10 = { groups: [], announcements: [], students: [], registrations: [],
+    lessons: [{ id:"l1", level:"4AM", ax:"grammaire", ar:"درس تجريبي", fr:"Leçon", published:true, min:20, xp:25 }],
+    exercises: [{ id:"e1", level:"4AM", ax:"grammaire", published:true, type:"quiz", diff:1, min:10, xpMax:120, tries:2,
+      titleAr:"تمرين", titleFr:"Exercice", descAr:"وصف", descFr:"Desc",
+      questions:[{ t:"Le garçon … parle.", o:["qui","que","dont","où"], a:0, d:1, eAr:"q", eFr:"q" },
+                 { t:"La leçon … j'ai lue.", o:["qui","que","dont","où"], a:1, d:1, eAr:"q", eFr:"q" }] }] };
+
+  /* — 1. formulaire (aucun compte) — */
+  const { dom, errs } = await boot("student/index.html", { seed: S10 });
+  await wait(600);
+  const h = H(dom);
+  ck("Formulaire d'inscription affiché (zéro compte)", !!h.q("[data-reg-form]"));
+  ck("Aucun bouton de connexion Google pour l'élève", !h.q("[data-gate-login]"));
+  ck("7 champs demandés (nom, classe, naissance, tél., e-mail, école, note)",
+     h.qa("[data-reg-form] .inp, [data-reg-form] .sel").length === 7,
+     h.qa("[data-reg-form] .inp, [data-reg-form] .sel").length + "");
+
+  /* — 2. refus des champs vides — */
+  h.q("[data-reg-form]").dispatchEvent(new dom.window.Event("submit", { bubbles:true, cancelable:true }));
+  await wait(220);
+  ck("Champs obligatoires refusés avec message clair", /تحقّق|vérifiez/i.test((h.q("#rfErr")||{}).textContent || ""));
+  ck("Aucune demande enregistrée à vide", (dom.window.PKdata.registrations || []).length === 0);
+
+  /* — 3. envoi valide — */
+  h.setVal("#rfName", "أمين بلقاسم");
+  h.setVal("#rfPhone", "0555000000");
+  h.setVal("#rfMail", "amine@example.com");
+  h.setVal("#rfLevel", "4AM");
+  h.setVal("#rfSchool", "متوسطة الأمير عبد القادر");
+  h.setVal("#rfNote", "أرغب في حصص السبت");
+  h.q("[data-reg-form]").dispatchEvent(new dom.window.Event("submit", { bubbles:true, cancelable:true }));
+  await wait(800);
+  const R = dom.window.PKdata.registrations || [];
+  ck("La demande arrive directement chez la professeure", R.length === 1 && R[0].name === "أمين بلقاسم" && R[0].level === "4AM");
+  ck("Informations transmises telles quelles", !!R[0] && R[0].parentPhone === "0555000000" && R[0].school === "متوسطة الأمير عبد القادر" && R[0].note === "أرغب في حصص السبت");
+  ck("Profil local activé, rôle « local »", dom.window.PKlocal.active() && (dom.window.PKdata.me || {}).role === "local");
+  ck("L'espace élève s'ouvre vraiment (KPI réels)", h.qa(".kpi").length >= 4, h.qa(".kpi").length + " KPI");
+  ck("Aucun « undefined » après inscription", h.noUndef());
+  ck("Aucune erreur JS (inscription)", errs.length === 0, errs[0] || "");
+  dom.window.close();
+
+  /* — 4. échec réseau : jamais de fausse réussite — */
+  const f2 = await boot("student/index.html", { seed: S10 });
+  await wait(600);
+  const h2 = H(f2.dom);
+  f2.dom.window.PKdb.addRegistration = () => Promise.reject(new Error("offline"));
+  h2.setVal("#rfName", "سارة بلعباس");
+  h2.setVal("#rfPhone", "0666000000");
+  h2.q("[data-reg-form]").dispatchEvent(new f2.dom.window.Event("submit", { bubbles:true, cancelable:true }));
+  await wait(700);
+  ck("Échec d'envoi : message d'erreur + 2 choix (pas de fausse réussite)",
+     !!h2.q("#rfErr [data-reg-retry]") && !!h2.q("#rfErr [data-reg-skip]"));
+  ck("Rien n'est enregistré chez la professeure en cas d'échec", (f2.dom.window.PKdata.registrations || []).length === 0);
+  h2.click(h2.q("#rfErr [data-reg-skip]"));
+  await wait(800);
+  ck("Poursuite locale possible et marquée « non envoyé »",
+     f2.dom.window.PKlocal.active() && f2.dom.window.PKlocal.profile().sent === false);
+  ck("Bandeau explicite « non envoyé » + bouton renvoyer", !!h2.q("[data-pend-local] [data-local-resend]"));
+  f2.dom.window.close();
+
+  /* — 5. progression LOCALE réelle : exercice puis cours — */
+  const ex = await boot("student/exercise.html?id=e1", { seed: S10 });
+  await wait(700);
+  const he = H(ex.dom);
+  const w = ex.dom.window;
+  w.PKlocal.register({ name:"أمين بلقاسم", level:"4AM", parentPhone:"0555000000" }, { sent:true });
+  w.document.dispatchEvent(new w.CustomEvent("pk:me", { detail: w.PKdata.me }));
+  await wait(500);
+  he.click(he.q("#btnStart")); await wait(350);
+  ck("Exercice lancé pour un élève sans compte", !!he.q(".qo"));
+  he.click(he.qa(".qo")[0]); await wait(250);
+  he.click(he.q("#qNext"));   await wait(250);
+  if (he.qa(".qo").length) { he.click(he.qa(".qo")[0]); await wait(250); }
+  he.click(he.q("#qNext"));   await wait(600);
+  const P = w.PKlocal.progress();
+  ck("Résultat affiché et XP enregistrés localement", !!he.q(".res__rg") && P.xp > 0, P.xp + " XP");
+  ck("Compteurs réels mis à jour (réponses, exercices)", P.answered >= 2 && P.exDone === 1, P.answered + " rép. · " + P.exDone + " ex.");
+  ck("Maîtrise d'axe calculée depuis les réponses", (P.mastery || {}).grammaire >= 0 && typeof (P.mastery||{}).grammaire === "number");
+  ck("Aucune erreur JS (parcours local)", ex.errs.length === 0, ex.errs[0] || "");
+  ex.dom.window.close();
+
+  /* — 6. cours marqué terminé (XP local) — */
+  const ls = await boot("student/lesson.html?id=l1", { seed: S10 });
+  await wait(700);
+  const hl = H(ls.dom);
+  const wl = ls.dom.window;
+  wl.PKlocal.register({ name:"أمين بلقاسم", level:"4AM", parentPhone:"0555000000" }, { sent:true });
+  wl.document.dispatchEvent(new wl.CustomEvent("pk:me", { detail: wl.PKdata.me }));
+  await wait(500);
+  const btnDone = hl.q("#lsDone");
+  ck("Bouton « cours terminé » présent", !!btnDone);
+  if (btnDone) {
+    hl.click(btnDone); await wait(500);
+    const pl = wl.PKlocal.progress();
+    ck("Cours terminé → XP et leçon enregistrés localement", pl.xp >= 25 && pl.done.length === 1, pl.xp + " XP · " + pl.done.length + " leçon");
+  }
+  ck("Aucune erreur JS (cours local)", ls.errs.length === 0, ls.errs[0] || "");
+  ls.dom.window.close();
+
+  /* — 7. profil local : modification enregistrée sur l'appareil — */
+  const pf = await boot("student/profile.html", { seed: S10 });
+  await wait(700);
+  const hp = H(pf.dom);
+  const wp = pf.dom.window;
+  wp.PKlocal.register({ name:"أمين بلقاسم", level:"4AM", parentPhone:"0555000000", email:"amine@example.com" }, { sent:true });
+  wp.document.dispatchEvent(new wp.CustomEvent("pk:me", { detail: wp.PKdata.me }));
+  await wait(500);
+  ck("Profil local affiché (champs modifiables)", !!hp.q("#pfName") && !!hp.q("#pfPhone"));
+  hp.setVal("#pfName", "أمين بلقاسم المعدّل");
+  hp.setVal("#pfPhone", "0777000000");
+  hp.click(hp.q("[data-save-profile]"));
+  await wait(500);
+  const pr = wp.PKlocal.profile();
+  ck("Modification enregistrée sur l'appareil", pr.name === "أمين بلقاسم المعدّل" && pr.parentPhone === "0777000000", pr.name);
+  ck("Aucune erreur JS (profil local)", pf.errs.length === 0, pf.errs[0] || "");
+  pf.dom.window.close();
+
+  /* — 8. la professeure accepte la demande → fiche élève créée — */
+  const ad = await boot("admin/index.html#reg", { seed: S10 });
+  await wait(700);
+  const ha = H(ad.dom);
+  const wa = ad.dom.window;
+  wa.PKdata.registrations = [{ id:"r1", name:"أمين بلقاسم", level:"4AM", parentPhone:"0555000000",
+    email:"amine@example.com", school:"متوسطة الأمير عبد القادر", birth:"2010-03-12",
+    note:"حصص السبت", status:"new", at:{ seconds: Math.floor(Date.now()/1000) } }];
+  ha.click(ha.q('[data-atab="reg"]') || ha.q("#mn"));
+  await wait(400);
+  ck("Module « طلبات التسجيل » accessible dans le panneau", /طلبات التسجيل/.test(ha.txt("#adTitle") || ha.txt()));
+  const dl = new Date(wa.PKdata.registrations[0].at.seconds*1000);
+  ck("Date de réception affichée (pas de date inventée)", !isNaN(dl.getTime()));
+  ck("Aucune erreur JS (module inscriptions)", ad.errs.length === 0, ad.errs[0] || "");
+  ad.dom.window.close();
 }
 
 console.log("\n\x1b[1m════ RÉSULTAT CORRECTIFS : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");

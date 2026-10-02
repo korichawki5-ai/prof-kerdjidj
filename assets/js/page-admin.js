@@ -189,7 +189,7 @@ function timetable(){
 
 /* ══════════════════ ÉLÈVES ══════════════════ */
 function students(){
-  const pend=pendingCard();
+  const pend=regCard()+pendingCard();
   const rows=D.students.map(s=>stn(s)).map(s=>{
     const g=D.groupOf(s.group)||{}; const r=X.rankOf(s.xp); const gm=X.globalMastery(s.mastery);
     return `<tr>
@@ -668,6 +668,7 @@ const MODS={
   bank:    {t:()=>t('adQbank'),    ic:'layers', fn:qbank, hidden:true},
   tt:      {t:()=>t('adTT'),        ic:'cal',    fn:timetable},
   students:{t:()=>t('adStudents'),  ic:'users',  fn:students},
+  reg:     {t:()=>t('adReg'),       ic:'mail',   fn:registrations, bind:bindRegs},
   groups:  {t:()=>t('adGroupsM'),   ic:'school', fn:groups},
   quiz:    {t:()=>t('adQuiz'),      ic:'quiz',   fn:quizBuilder, bind:bindQB},
   lessons: {t:()=>t('adLessons'),   ic:'book',   fn:lessons},
@@ -688,7 +689,7 @@ function render(mn){
   if(!window.PKdb.mock && !(window.PKdata.me && window.PKdata.me.role==='admin')){
     mn.innerHTML = `<section class="gate"><div class="gate__c">${svg('lock','width="36" height="36"')}
       <h2>${t('adminOnly')}</h2>
-      <button class="btn btn--p btn--lg" data-gate-login>${t('navLogin')} · Google</button>
+      <button class="btn btn--p btn--lg" data-gate-login>${t('navAdminLogin')} · Google</button>
       <p class="gate__s">${t('notConnected')}</p></div></section>`;
     window.PKapp.PKgate.bind(mn, ()=>render(mn)); return;
   }
@@ -739,6 +740,17 @@ function bindCommon(p){
      Actions réelles (fini les boutons « démo ») :
      élève · groupe/séance · liaison e-mail · annonce · cours · impression
      ══════════════════════════════════════════════════════════════ */
+
+  /* ── طلبات التسجيل : فتح الوحدة مباشرة ── */
+  const gr=$('[data-goto-reg]',p);
+  if(gr) gr.addEventListener('click', e=>{
+    e.preventDefault();
+    location.hash = 'reg';
+    cur = 'reg';
+    const mn = document.querySelector('.mn') || document;
+    show(mn);
+    window.scrollTo(0,0);
+  });
 
   /* ── élèves ── */
   const as=$('[data-add-student]',p); if(as) as.addEventListener('click', ()=>openStudentForm());
@@ -1363,6 +1375,8 @@ function stn(s){
     color:'#1E4FD8', ar:'', fr:'', group:null, parent:''}, s||{});
 }
 function lvCls(id){ const l = D.byId(D.levels, id); return l ? l.cls : 'lv-1am'; }
+/* البريد المرتبط ببطاقة التلميذ (كانت الدالة مستعملة وغير معرَّفة → خطأ عند التعديل) */
+function stMail(s){ return String((s && (s.googleEmail || s.email)) || '').trim(); }
 
 /* ── re-rendu du module courant (après une écriture réussie) ── */
 function refresh(){
@@ -1389,6 +1403,101 @@ const valOf = id => { const e = document.getElementById(id); return e ? String(e
 const intOf = (id,d) => { const v = parseInt(valOf(id),10); return isFinite(v) ? v : d; };
 const cardErr = (e) => window.PK.toast((e && (e.friendly || e.msg)) || t('saveErr'), 'er', 4600);
 
+/* ══════════════════ طلبات التسجيل (استمارة التلميذ بلا حساب) ══════════════════ */
+function regWhen(r){
+  if(!r || !r.at) return '—';
+  const sec = typeof r.at === 'number' ? r.at : r.at.seconds;
+  const d = sec ? new Date(sec*1000) : new Date(r.at);
+  if(isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('fr-FR') + ' · ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+function regNew(){ return (D.registrations||[]).filter(r=>r.status!=='ok').length; }
+function regCard(){
+  const n = regNew();
+  if(!n) return '';
+  return `<div class="cd rv mb5" style="border-inline-start:3px solid var(--ac)">
+    <div class="cd__h"><div>
+      <div class="cd__t">${t('adReg')} <span class="bd bd--ac la">${n}</span></div>
+      <div class="cd__s">${t('adRegS')}</div></div>
+      <a class="btn btn--p btn--sm" href="#reg" data-goto-reg>${svg('mail','width="15" height="15"')}${t('adRegOpen')}</a>
+    </div></div>`;
+}
+function registrations(){
+  const list = (D.registrations||[]).slice();
+  const rows = list.map(r=>{
+    const done = r.status === 'ok';
+    return `<tr>
+      <td><div class="who"><span class="av" style="background:${done?'#1d7874':'#1E4FD8'}">${esc(ini(String(r.name||'??')))}</span>
+        <div><b>${esc(r.name||'—')}</b>${r.school?`<small>${esc(r.school)}</small>`:''}</div></div></td>
+      <td><span class="bd bd--lv ${lvCls(r.level)}">${esc(r.level||'—')}</span></td>
+      <td class="la" dir="ltr">${esc(r.parentPhone||'—')}</td>
+      <td class="la" dir="ltr" style="font-size:.83rem">${r.email?esc(r.email):'—'}</td>
+      <td class="la" dir="ltr">${r.birth?esc(r.birth):'—'}</td>
+      <td style="max-width:240px;font-size:.83rem">${r.note?esc(r.note):'—'}</td>
+      <td class="la" style="font-size:.8rem">${esc(regWhen(r))}</td>
+      <td><span class="bd ${done?'bd--ok':'bd--wn'}">${done?t('adRegDone'):t('adRegNew')}</span></td>
+      <td><div class="acts">
+        <button class="iact" data-reg-accept="${esc(r.id)}" title="${t('adRegAccept')}">${svg('plus')}</button>
+        <button class="iact iact--er" data-reg-del="${esc(r.id)}" title="${t('del')}">${svg('trash')}</button>
+      </div></td></tr>`;
+  }).join('');
+  return `
+  <div class="cd rv mb5" style="border-inline-start:3px solid var(--ac)">
+    <div class="cd__h"><div>
+      <div class="cd__t">${t('adReg')}</div>
+      <div class="cd__s">${t('adRegS')}</div></div>
+      <div class="flex gap2 wrap-f">
+        <button class="btn btn--g btn--sm" data-reg-refresh>${svg('refresh','width="15" height="15"')}${L_('تحديث','Actualiser')}</button>
+      </div>
+    </div>
+  </div>
+  ${list.length ? `<div class="cd cd--f rv">
+    <div class="tbw"><table class="tb" style="min-width:1120px">
+      <thead><tr>
+        <th>${L_('الاسم واللقب','Nom et prénom')}</th><th>${t('stuLevel')}</th>
+        <th>${L_('هاتف الولي','Téléphone')}</th><th>${L_('البريد','E-mail')}</th>
+        <th>${L_('تاريخ الميلاد','Naissance')}</th><th>${L_('ملاحظة','Remarque')}</th>
+        <th>${L_('وصل في','Reçu le')}</th><th>${t('stuStatus')}</th><th></th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+  </div>` : `<div class="empty"><div class="ico">${svg('mail')}</div><b>${t('adRegEmpty')}</b>
+      <div class="muted mt3" style="font-size:.86rem">${t('adRegEmptyS')}</div></div>`}`;
+}
+function bindRegs(host){
+  const rf = $('[data-reg-refresh]',host);
+  if(rf) rf.addEventListener('click', async ()=>{
+    rf.disabled = true;
+    try{
+      D.registrations = await window.PKdb.listRegistrations();
+      toast(L_('تم التحديث','Actualisé'),'ok',2200);
+    }catch(e){ cardErr(e); }
+    finally{ rf.disabled = false; refresh(); }
+  });
+  $$('[data-reg-accept]',host).forEach(b=> b.addEventListener('click', ()=>{
+    const r = (D.registrations||[]).find(x=>x.id===b.dataset.regAccept);
+    if(!r) return;
+    /* البطاقة تُنشأ من النموذج (يمكن للأستاذة تعديل القسم/الفوج) */
+    openStudentForm({
+      prefill:{ ar:r.name||'', fr:r.name||'', level:r.level||'1AM', parent:r.parentPhone||'',
+                school:r.school||'', googleEmail:r.email||'' },
+      after: async (id)=>{
+        try{
+          await window.PKdb.setRegistration(r.id, {status:'ok', studentId:id||null});
+          D.registrations = await window.PKdb.listRegistrations();
+        }catch(e){ cardErr(e); }
+      }
+    });
+  }));
+  $$('[data-reg-del]',host).forEach(b=> b.addEventListener('click', async ()=>{
+    if(!window.confirm(L_('حذف هذا الطلب نهائياً؟','Supprimer définitivement cette demande ?'))) return;
+    try{
+      await window.PKdb.delRegistration(b.dataset.regDel);
+      D.registrations = (D.registrations||[]).filter(r=>r.id!==b.dataset.regDel);
+      toast(L_('حُذف الطلب','Demande supprimée'),'ok',2400);
+      refresh();
+    }catch(e){ cardErr(e); }
+  }));
+}
+
 /* ── carte « demandes en attente » (comptes Google sans fiche reliée) ── */
 function pendingCard(){
   const list = window.PKdata.pending || [];
@@ -1413,17 +1522,19 @@ function pendingCard(){
 /* ── formulaire élève (création / modification) ── */
 function openStudentForm(opts){
   opts = opts || {};
-  const s = opts.student ? stn(opts.student) : null;
+  const s  = opts.student ? stn(opts.student) : null;
+  const pf = opts.prefill || {};            /* قيم أولية (مثلاً: طلب تسجيل) */
+  const v  = (k, dflt) => s ? (s[k] == null ? dflt : s[k]) : (pf[k] == null ? dflt : pf[k]);
   const body = `
     <div class="g g2" style="gap:14px">
-      ${fld2('stAr', t('stuNameAr2'), s?s.ar:'', {ph:L_('مثال: الاسم واللقب','Ex. : Nom et prénom')})}
-      ${fld2('stFr', t('stuNameFr2'), s?s.fr:'', {dir:1, ph:'Ex. : Nom et prénom'})}
-      ${sel2('stLv', t('stuLv')||t('lsEdLv'), D.levels.map(l=>({v:l.id,l:L_(l.ar,l.fr)})), s?s.level:'1AM')}
-      ${sel2('stGrp', t('stuGroup'), [{v:'',l:'—'}].concat(D.groups.map(g=>({v:g.id,l:g.name}))), s?s.group:'')}
-      ${fld2('stMail', t('stuEmailG'), s?stMail(s):(opts.email||''), {dir:1, ph:'eleve@gmail.com'})}
-      ${fld2('stPar', t('stuParent2'), s?s.parent:'', {dir:1, ph:'0555…'})}
+      ${fld2('stAr', t('stuNameAr2'), v('ar',''), {ph:L_('مثال: الاسم واللقب','Ex. : Nom et prénom')})}
+      ${fld2('stFr', t('stuNameFr2'), v('fr',''), {dir:1, ph:'Ex. : Nom et prénom'})}
+      ${sel2('stLv', t('stuLv')||t('lsEdLv'), D.levels.map(l=>({v:l.id,l:L_(l.ar,l.fr)})), v('level','1AM'))}
+      ${sel2('stGrp', t('stuGroup'), [{v:'',l:'—'}].concat(D.groups.map(g=>({v:g.id,l:g.name}))), v('group',''))}
+      ${fld2('stMail', t('stuEmailG'), s?stMail(s):(pf.googleEmail||opts.email||''), {dir:1, ph:'eleve@gmail.com'})}
+      ${fld2('stPar', t('stuParent2'), v('parent',''), {dir:1, ph:'0555…'})}
     </div>
-    ${fld2('stSchool', t('stuSchool2'), s?stMail(s):'', {mt:1, ph:L_('اسم المؤسسة','Nom de l’établissement')})}
+    ${fld2('stSchool', t('stuSchool2'), s?(s.school||''):(pf.school||''), {mt:1, ph:L_('اسم المؤسسة','Nom de l’établissement')})}
     <p class="muted mt4" style="font-size:.82rem;line-height:1.7">${t('stuNewS')}</p>`;
   const mo = modal(s ? t('edit') : t('stuNewT'), body,
     `<button class="btn btn--g" data-close>${t('cancel')||'إلغاء'}</button>
@@ -1449,7 +1560,9 @@ function openStudentForm(opts){
         if(!lk.ok) window.PK.toast(lk.msg||t('linkErr'),'wn',4200);
       }
       window.PK.toast(t('studentSaved'),'ok',2600);
-      mo.close(); refresh();
+      mo.close();
+      if(opts.after){ try{ await opts.after(id, doc); }catch(e){ if(window.console) console.warn('[PK] after():', e); } }
+      refresh();
     }catch(e){ cardErr(e); }
   });
 }

@@ -15,7 +15,9 @@ const DAYS={sat:['السبت','Samedi','Sam'],sun:['الأحد','Dimanche','Dim'
 const AXFR={grammaire:'Grammaire',conjugaison:'Conjugaison',orthographe:'Orthographe',vocabulaire:'Vocabulaire',
   comprehension:'Compréhension',expression:'Expression écrite',oral:'Expression orale',
   methodology:'Méthodologie BEM',methodologie:'Méthodologie BEM',sujets:'Sujets corrigés'};
-const axName=id=>{ const a=D.axes.find(x=>x.id===id); return a?L_(a.ar,a.fr):(AXFR[id]||id); };
+const axName=id=>{ const a=D.axes.find(x=>x.id===id); const v=a?L_(a.ar,a.fr):(AXFR[id]||''); return v||''; };
+/* شارة المحور: تُخفى إن لم يكن المحور محدّداً (لا « undefined ») */
+const axBadge=id=>{ const n=axName(id); return n?`<span class="bd bd--gy">${escH(n)}</span>`:''; };
 const ini=n=>String(n).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 const me=()=>D.me;
 const myLv=()=>{const m=D.me; if(!m) return null; return m.role==='admin'?'ALL':(m.level||null);};
@@ -27,6 +29,11 @@ const annBody=a=>{const c=(a.i18n&&typeof a.i18n==='object')?a.i18n:null;
   return L_(c&&c.bodyAr,c&&c.bodyFr)||L_(c&&c.arBody,c&&c.frBody)||L_(a.bodyAr,a.bodyFr)||L_(a.arBody,a.frBody)||(typeof a.i18n==='string'?t(a.i18n):'')||'';};
 const emptyCard=(k,i)=>`<div class="empty"><div class="ico">${svg(i||'book')}</div><b>${t(k)}</b></div>`;
 const lvCls=id=>{ const l=D.byId(D.levels,id); return l?l.cls:'lv-1am'; };
+/* أرقام آمنة: لا نعرض « undefined » إن كان الحقل ناقصاً في قاعدة البيانات */
+const nun=(v,d)=>(typeof v==='number'&&!isNaN(v))?v:(d===undefined?'—':d);
+/* ملخّص الدرس: يُخفى إن لم تكتبه الأستاذة (لا كلمة undefined) */
+const sumOf=l=>{ const v=L_(l&&l.sumAr,l&&l.sumFr); return (v==null||v==='')?'':String(v); };
+const exQn=x=>(typeof x.q==='number')?x.q:(Array.isArray(x.questions)?x.questions.length:'—');
 const escH=v=> (window.PK && window.PK.esc) ? window.PK.esc(v) : String(v==null?'':v);
 
 /* ───────── En-tête de page (barre de titre de l'app) ───────── */
@@ -99,15 +106,15 @@ function renderLsGrid(host){
   g.innerHTML=list.map(x=>`<article class="ls rv">
     <div class="ls__th">${svg(x.icon||(D.axes.find(a=>a.id===x.ax)||{icon:'book'}).icon)}</div>
     <div class="flex gap2 wrap-f">
-      <span class="bd bd--lv ${D.byId(D.levels,x.level).cls}">${x.level}</span>
-      <span class="bd bd--gy">${axName(x.ax)}</span>
+      <span class="bd bd--lv ${lvCls(x.level)}">${escH(x.level||'')}</span>
+      ${axBadge(x.ax)}
       ${x.done?`<span class="bd bd--ok">${svg('checkc','width="11" height="11"')}${t('lsDone')}</span>`:''}
       ${x.isNew?`<span class="bd bd--ac">${svg('spark','width="11" height="11"')}${t('lsNew')}</span>`:''}
     </div>
     <h3 class="ls__t" dir="ltr">${L_(x.ar,x.fr)}</h3>
-    <p class="muted" style="font-size:.87rem;line-height:1.75;flex:1">${L_(x.sumAr,x.sumFr)}</p>
+    ${sumOf(x) ? `<p class="muted" style="font-size:.87rem;line-height:1.75;flex:1">${escH(sumOf(x))}</p>` : ''}
     <div class="ls__m">
-      <span class="bd bd--gy la">${svg('clock','width="12" height="12"')}${x.min} ${t('lsMin')}</span>
+      <span class="bd bd--gy la">${svg('clock','width="12" height="12"')}${nun(x.min)} ${t('lsMin')}</span>
       <span class="bd bd--gy la">${svg('file','width="12" height="12"')}${x.files||0}</span>
       <span class="bd bd--wn la">${svg('bolt','width="12" height="12"')}+${x.xp||X.CFG.xpPerLesson} XP</span>
     </div>
@@ -137,20 +144,20 @@ function lessonPage(){
   const prev=myLessons()[idx-1], next=myLessons()[idx+1];
   return head({crumb:crumb('index.html',t('sbDash'))+crumb('lessons.html',t('sbLessons'))+'<span>'+l.id+'</span>',
     title:L_(l.ar,l.fr),
-    sub:`${l.level} · ${axName(l.ax)} · ${l.min} ${t('lsMin')} · +${l.xp||X.CFG.xpPerLesson} XP`,
+    sub:`${l.level} · ${axName(l.ax)} · ${nun(l.min)} ${t('lsMin')} · +${l.xp||X.CFG.xpPerLesson} XP`,
     actions:`${prev?`<a class="btn btn--g btn--i" href="lesson.html?id=${prev.id}" title="${L_('السابق','Précédent')}">${svg('arrow')}</a>`:''}
       ${next?`<a class="btn btn--g btn--i" href="lesson.html?id=${next.id}" title="${L_('التالي','Suivant')}">${svg('chev')}</a>`:''}`}) + `
   <div class="g g-main adm-split" style="--adm-side:320px">
     <div style="min-width:0;display:flex;flex-direction:column;gap:20px">
       <div class="cd rv">
         <div class="flex gap2 wrap-f mb4">
-          <span class="bd bd--lv ${D.byId(D.levels,l.level).cls}">${l.level}</span>
+          <span class="bd bd--lv ${lvCls(l.level)}">${escH(l.level||'')}</span>
           <span class="bd bd--gy">${svg(ax.icon,'width="12" height="12"')}${axName(l.ax)}</span>
-          <span class="bd bd--gy la">${svg('clock','width="12" height="12"')}${l.min} min</span>
+          <span class="bd bd--gy la">${svg('clock','width="12" height="12"')}${nun(l.min)} min</span>
           ${l.done?`<span class="bd bd--ok">${svg('checkc','width="12" height="12"')}${t('lsDone')}</span>`:''}
         </div>
         <h2 style="font-size:clamp(1.15rem,2.4vw,1.6rem);margin-block-end:6px" dir="ltr">${L_(l.ar,l.fr)}</h2>
-        <p class="muted" style="font-size:.92rem;line-height:1.8;margin-block-end:18px">${L_(l.sumAr,l.sumFr)}</p>
+        ${sumOf(l) ? `<p class="muted" style="font-size:.92rem;line-height:1.8;margin-block-end:18px">${escH(sumOf(l))}</p>` : ''}
         <div class="rich" dir="ltr">${l.content||''}</div>
         <div class="flex gap3 mt6 wrap-f" style="padding-block-start:18px;border-block-start:1px dashed var(--line)">
           <button class="btn btn--${l.done?'g':'p'}" id="lsDone">${svg(l.done?'refresh':'checkc','width="17" height="17"')}
@@ -168,7 +175,7 @@ function lessonPage(){
         ${ex.slice(0,4).map(e=>`<div class="mini-row">
           <span class="ico ico--sm">${svg('quiz')}</span>
           <div style="min-width:0"><b>${L_(e.titleAr,e.titleFr)}</b>
-            <div class="muted la" style="font-size:.78rem">${e.q} ${t('exQ')} · ${e.min} min · ≤ ${e.xpMax} XP</div></div>
+            <div class="muted la" style="font-size:.78rem">${exQn(e)} ${t('exQ')} · ${nun(e.min)} min · ≤ ${nun(e.xpMax,0)} XP</div></div>
           <a class="btn btn--s btn--sm" style="margin-inline-start:auto" href="exercise.html?id=${e.id}">${svg('play','width="14" height="14"')}${t('exStart')}</a>
         </div>`).join('')}
       </div>`:''}
@@ -206,12 +213,23 @@ function bindLesson(host){
   b.addEventListener('click',()=>{
     const id=new URLSearchParams(location.search).get('id')||(myLessons()[0]||{}).id;
     const l=myLessons().find(x=>x.id===id); if(!l) return emptyCard('noLessons','book');
-    l.done=!l.done;
+    const was = !!l.done;
+    l.done = !was;
+    const xp = X.CFG.xpPerLesson;
     if(l.done){
-      const xp=X.CFG.xpPerLesson;
-      window.PKdb.markLessonDone(me().id, l.id, xp);
-      confetti(60); toast(`${t('lsMark')} · +${xp} XP`,'ok',3200);
-    } else toast(L_('أُلغي وضع الإكمال','Cours marqué comme non terminé'),'wn',2200);
+      /* محلياً: التلميذ بلا حساب — تقدّمه محفوظ على جهازه */
+      if(window.PKlocal && window.PKlocal.active()){
+        const r = window.PKlocal.logLesson(l.id, xp);
+        if(r && !r.already) confetti(60);
+        toast(`${t('lsMark')} · +${xp} XP`,'ok',3200);
+      } else {
+        window.PKdb.markLessonDone(me().id, l.id, xp);
+        confetti(60); toast(`${t('lsMark')} · +${xp} XP`,'ok',3200);
+      }
+    } else {
+      if(window.PKlocal && window.PKlocal.active()) window.PKlocal.unmarkLesson(l.id, xp);
+      toast(L_('أُلغي وضع الإكمال','Cours marqué comme non terminé'),'wn',2200);
+    }
     b.className='btn btn--'+(l.done?'g':'p');
     b.innerHTML=svg(l.done?'refresh':'checkc','width="17" height="17"')+(l.done?t('exCont'):t('lsMark'));
   });
@@ -262,7 +280,7 @@ function renderExGrid(host){
     return `<div class="cd cd--h rv">
       <div class="flex gap2 wrap-f mb4">
         <span class="bd bd--lv ${lvCls(x.level)}">${x.level}</span>
-        <span class="bd bd--gy">${axName(x.ax)}</span>
+        ${axBadge(x.ax)}
         <span class="qtype qtype--${(x.type==='mixed'?'mcq':(x.type||'quiz'))}">${t('ty'+(x.type||'quiz').charAt(0).toUpperCase()+(x.type||'quiz').slice(1))}</span>
         <span class="diff diff--${x.diff}" style="margin-inline-start:auto"><i class="on"></i><i class="${x.diff>=2?'on':''}"></i><i class="${x.diff>=3?'on':''}"></i></span>
       </div>
@@ -271,9 +289,9 @@ function renderExGrid(host){
       ${best?`<div class="flex just-b items-c mt3" style="font-size:.82rem">
         <span class="muted">${t('exBest')}</span><b class="la" style="color:var(--ok)">${best}%</b></div>`:''}
       <div class="cd__f">
-        <span class="bd bd--gy la">${svg('quiz','width="12" height="12"')}${x.q}</span>
+        <span class="bd bd--gy la">${svg('quiz','width="12" height="12"')}${exQn(x)}</span>
         <span class="bd bd--gy la">${svg('clock','width="12" height="12"')}${x.min}</span>
-        <span class="bd bd--wn la">${svg('bolt','width="12" height="12"')}≤ ${x.xpMax}</span>
+        <span class="bd bd--wn la">${svg('bolt','width="12" height="12"')}≤ ${nun(x.xpMax,0)}</span>
         <a class="btn btn--p btn--sm" style="margin-inline-start:auto" href="exercise.html?id=${x.id}">${svg('play','width="15" height="15"')}${t('exStart')}</a>
       </div>
     </div>`;}).join('');
@@ -433,7 +451,7 @@ function studentTimetable(){
     D.days.forEach(d=>{
       const s=D.slotAt(d,slot);
       const mineHere=s&&mine.some(x=>x.name===s.name);
-      grid += s ? `<div class="sl"><div class="blk ${s.cls} ${mineHere?'mine':''}"><b>${s.name}</b>
+      grid += s ? `<div class="sl"><div class="blk ${s.cls||lvCls(s.level)} ${mineHere?'mine':''}"><b>${escH(s.name||'')}</b>
           <small>${L_(s.schoolAr,s.schoolFr)}</small><i class="la">${s.start}–${s.end}</i></div></div>`
         : `<div class="sl"></div>`;
     });
@@ -465,10 +483,12 @@ function studentTimetable(){
   <div class="g g3 cas mt5">
     ${mine.map(x=>`<div class="cd rv">
       <div class="cd__h"><div class="cd__t">${x.name}</div>
-        <span class="bd bd--lv ${x.cls}">${x.level}</span></div>
+        <span class="bd bd--lv ${x.cls||lvCls(x.level)}">${escH(x.level||'')}</span></div>
       <div class="g gap3">
         ${[['cal',DAYS[x.day][ar()?0:1]+' · '+x.start+'–'+x.end],['school',L_(x.schoolAr,x.schoolFr)],
-           ['user',x.teacher],['pin',x.room+' · '+t('onsite')],['target',`${x.enrolled}/${x.capacity} ${t('grStudents')}`]]
+           ['user',x.teacher],['pin',x.room+' · '+t('onsite')],
+           ['target', (typeof x.enrolled==='number' && typeof x.capacity==='number')
+                        ? `${x.enrolled}/${x.capacity} ${t('grStudents')}` : null]]
           .map(([ic,v])=>`<div class="flex items-c gap3" style="font-size:.86rem;padding:8px 0;border-block-end:1px dashed var(--line)">
             ${svg(ic,'width="16" height="16" style="color:var(--ac)"')}<span>${v}</span></div>`).join('')}
       </div></div>`).join('')}
@@ -541,6 +561,73 @@ function bindAnnouncements(host){
 }
 
 /* ══════════════════ 7. MON PROFIL ══════════════════ */
+/* تلميذ بلا حساب: كل حقوله قابلة للتعديل، وبياناته على جهازه. */
+function localInfoCards(m){
+  const st = m.sent
+    ? L_('أُرسل إلى الأستاذة ✓','Envoyé à la professeure ✓')
+    : L_('لم يُرسل بعد — اضغط «إعادة الإرسال»','Pas encore envoyé — cliquez sur « Renvoyer »');
+  return `
+      <div class="cd rv">
+        <div class="cd__h"><div><div class="cd__t">${L_('معلوماتي','Mes informations')}</div>
+          <div class="cd__s">${L_('عدّل معلوماتك — تُحفظ على هذا الجهاز، وترسلها إلى الأستاذة بزر واحد','Modifiez vos informations — elles restent sur cet appareil et partent vers la professeure en un clic')}</div></div>
+          <span class="bd ${m.sent?'bd--ok':'bd--wn'}">${st}</span></div>
+        <div class="g g2" style="gap:16px">
+          <div class="fld"><label>${L_('الاسم واللقب','Nom et prénom')}</label><input class="inp" id="pfName" value="${escH(m.ar)}"></div>
+          <div class="fld"><label data-i18n="stuLevel">${t('stuLevel')}</label>
+            <select class="sel" id="pfLevel">${D.levels.map(l=>`<option value="${escH(l.id)}"${l.id===m.level?' selected':''}>${escH(l.id)} — ${escH(L_(l.ar,l.fr))}</option>`).join('')}</select></div>
+          <div class="fld"><label>${L_('تاريخ الميلاد','Date de naissance')}</label><input class="inp" id="pfBirth" type="date" dir="ltr" value="${escH(m.birth||'')}"></div>
+          <div class="fld"><label data-i18n="stuParent">${t('stuParent')}</label><input class="inp" id="pfPhone" dir="ltr" inputmode="tel" value="${escH(m.parent||'')}"></div>
+          <div class="fld"><label>${L_('البريد الإلكتروني','E-mail')}</label><input class="inp" id="pfMail" type="email" dir="ltr" value="${escH(m.email||'')}"></div>
+          <div class="fld"><label data-i18n="stuSchool">${t('stuSchool')}</label><input class="inp" id="pfSchool" value="${escH(m.school||'')}"></div>
+        </div>
+        <div class="fld mt4"><label>${L_('ملاحظة للأستاذة','Message à la professeure')}</label>
+          <textarea class="inp ta" id="pfNote" rows="2">${escH(m.note||'')}</textarea></div>
+        <div class="flex gap3 mt5 wrap-f items-c">
+          <button class="btn btn--p" data-save-profile>${svg('save','width="17" height="17"')}${t('save')}</button>
+          <button class="btn btn--g" data-send-teacher>${svg('mail','width="17" height="17"')}${L_('إرسال إلى الأستاذة','Envoyer à la professeure')}</button>
+          <span class="muted" style="font-size:.82rem;display:flex;align-items:center;gap:8px">
+            ${svg('info','width="14" height="14"')}${L_('تقدّمك محفوظ على هذا الجهاز','Votre progression est enregistrée sur cet appareil')}</span>
+        </div>
+      </div>
+      <div class="cd rv" style="--d:60ms">
+        <div class="cd__h"><div><div class="cd__t">${L_('كيف يعمل حسابي؟','Comment fonctionne mon espace ?')}</div>
+          <div class="cd__s">${L_('بلا حساب وبلا كلمة سر: اكتب معلوماتك، وتابع دروسك. الأستاذة ترى معلوماتك في لوحتها.','Sans compte ni mot de passe : remplissez vos informations et suivez vos cours. La professeure les reçoit dans son panneau.')}</div></div></div>
+        <div class="flex gap3 wrap-f items-c">
+          <span class="bd">${svg('user','width="12" height="12"')}${escH(m.ar||'')}</span>
+          <span class="bd bd--lv ${lvCls(m.level)}">${escH(m.level||'')}</span>
+          ${m.email?`<span class="bd la" dir="ltr">${escH(m.email)}</span>`:''}
+        </div>
+      </div>`;
+}
+/* حساب Google قديم (سابق) — يبقى كما كان */
+function remoteInfoCards(m, g){
+  return `
+      <div class="cd rv">
+        <div class="cd__h"><div><div class="cd__t">${L_('معلوماتي','Mes informations')}</div>
+          <div class="cd__s">${L_('الاسم الظاهر يمكنك تعديله — الفوج والمؤسسة تُعدَّلان من طرف الأستاذة','Votre nom affiché est modifiable — le groupe et l’établissement sont gérés par la professeure')}</div></div></div>
+        <div class="g g2" style="gap:16px">
+          <div class="fld"><label>${L_('الاسم بالعربية','Nom (AR)')}</label><input class="inp" id="pfAr" value="${escH(m.ar)}"></div>
+          <div class="fld"><label>${L_('Nom (FR)','الاسم بالفرنسية')}</label><input class="inp" id="pfFr" dir="ltr" value="${escH(m.fr)}"></div>
+          <div class="fld"><label data-i18n="stuLevel">${t('stuLevel')}</label><input class="inp la" value="${escH(m.level)}" disabled></div>
+          <div class="fld"><label data-i18n="stuGroup">${t('stuGroup')}</label><input class="inp" value="${escH(g.name||m.group||'')}" disabled></div>
+          <div class="fld"><label data-i18n="stuSchool">${t('stuSchool')}</label><input class="inp" value="${escH(L_(g.schoolAr||m.school,g.schoolFr||m.school)||'')}" disabled></div>
+          <div class="fld"><label data-i18n="stuParent">${t('stuParent')}</label><input class="inp" dir="ltr" value="${escH(m.parent||'')}" disabled></div>
+        </div>
+        <div class="flex gap3 mt5 wrap-f">
+          <button class="btn btn--p" data-save-profile>${svg('save','width="17" height="17"')}${t('save')}</button>
+          <span class="muted" style="font-size:.82rem;display:flex;align-items:center;gap:8px">
+            ${svg('lock','width="14" height="14"')}${L_('الحقول المقفلة تُعدَّل من لوحة الإدارة','Les champs verrouillés se modifient depuis le panneau d’administration')}</span>
+        </div>
+      </div>
+      <div class="cd rv" style="--d:60ms">
+        <div class="cd__h"><div><div class="cd__t">${t('stuGoogle')}</div>
+          <div class="cd__s">${L_('حساب قديم مرتبط بالمنصة','Ancien compte lié à la plateforme')}</div></div>
+          <span class="bd ${m.linked?'bd--ok':'bd--wn'}">${m.linked?t('stuLinked'):t('stuNotLinked')}</span></div>
+        <div class="flex gap3 wrap-f items-c">
+          <span class="muted" style="font-size:.84rem">${L_('البريد المرتبط','Compte associé')} : <b class="la" dir="ltr">${escH(m.email||'—')}</b></span>
+        </div>
+      </div>`;
+}
 function profile(){
   const m=me(), sum=X.summarize(m), g=D.groupOf(m.group)||{};
   return head({crumb:crumb('index.html',t('sbDash'))+'<span>'+t('sbProfile')+'</span>',
@@ -572,32 +659,7 @@ function profile(){
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
-      <div class="cd rv">
-        <div class="cd__h"><div><div class="cd__t">${L_('معلوماتي','Mes informations')}</div>
-          <div class="cd__s">${L_('الاسم الظاهر يمكنك تعديله — الفوج والمؤسسة تُعدَّلان من طرف الأستاذة','Votre nom affiché est modifiable — le groupe et l’établissement sont gérés par la professeure')}</div></div></div>
-        <div class="g g2" style="gap:16px">
-          <div class="fld"><label>${L_('الاسم بالعربية','Nom (AR)')}</label><input class="inp" id="pfAr" value="${escH(m.ar)}"></div>
-          <div class="fld"><label>${L_('Nom (FR)','الاسم بالفرنسية')}</label><input class="inp" id="pfFr" dir="ltr" value="${escH(m.fr)}"></div>
-          <div class="fld"><label data-i18n="stuLevel">${t('stuLevel')}</label><input class="inp la" value="${escH(m.level)}" disabled></div>
-          <div class="fld"><label data-i18n="stuGroup">${t('stuGroup')}</label><input class="inp" value="${escH(g.name||m.group||'')}" disabled></div>
-          <div class="fld"><label data-i18n="stuSchool">${t('stuSchool')}</label><input class="inp" value="${escH(L_(g.schoolAr||m.school,g.schoolFr||m.school)||'')}" disabled></div>
-          <div class="fld"><label data-i18n="stuParent">${t('stuParent')}</label><input class="inp" dir="ltr" value="${m.parent}" disabled></div>
-        </div>
-        <div class="flex gap3 mt5 wrap-f">
-          <button class="btn btn--p" data-save-profile>${svg('save','width="17" height="17"')}${t('save')}</button>
-          <span class="muted" style="font-size:.82rem;display:flex;align-items:center;gap:8px">
-            ${svg('lock','width="14" height="14"')}${L_('الحقول المقفلة تُعدَّل من لوحة الإدارة','Les champs verrouillés se modifient depuis le panneau d’administration')}</span>
-        </div>
-      </div>
-      <div class="cd rv" style="--d:60ms">
-        <div class="cd__h"><div><div class="cd__t">${t('stuGoogle')}</div>
-          <div class="cd__s">${L_('الدخول بحساب Google يحمي تقدّمك ويزامنك على كل الأجهزة','La connexion Google protège votre progression et la synchronise sur tous vos appareils')}</div></div>
-          <span class="bd ${m.linked?'bd--ok':'bd--wn'}">${m.linked?t('stuLinked'):t('stuNotLinked')}</span></div>
-        <div class="flex gap3 wrap-f items-c">
-          <button class="btn btn--g" data-google>${svg('abc','width="17" height="17"')}${t('navLogin')} · Google</button>
-          <span class="muted" style="font-size:.84rem">${L_('البريد المرتبط','Compte associé')} : <b class="la" dir="ltr">${escH(m.email||'—')}</b></span>
-        </div>
-      </div>
+      ${m.local ? localInfoCards(m) : remoteInfoCards(m, g)}
       <div class="cd rv" style="--d:120ms">
         <div class="cd__h"><div><div class="cd__t">${L_('تفضيلاتي','Mes préférences')}</div></div></div>
         <div class="g g2" style="gap:16px">
@@ -622,13 +684,40 @@ function profile(){
     </div>
   </div>`;
 }
+/* إعادة رسم الصفحة بعد أي تعديل محلي */
+function rerender(){
+  const mn = $('#mn') || document.querySelector('.mn');
+  if(!mn) return;
+  if(window.PKlocal && window.PKlocal.active()) D.me = window.PKlocal.me();
+  render(mn);
+}
+const fv = (id, host) => { const e = $('#'+id, host); return e ? String(e.value||'').trim() : ''; };
+
 function bindProfile(host){
-  /* Avant : syncProfile({ar,fr}) recevait un objet simple alors que la
-     fonction attend un utilisateur Firebase → l'uid était « undefined » et
-     l'enregistrement échouait silencieusement. On utilise saveMyProfile(). */
-  const sv=$('[data-save-profile]',host); if(sv) sv.addEventListener('click', async ()=>{
+  const m = me() || {};
+  const sv = $('[data-save-profile]',host);
+  if(sv) sv.addEventListener('click', async ()=>{
+    /* ── تلميذ بلا حساب: كل شيء يُحفظ على جهازه، بلا إنترنت وبلا انتظار ── */
+    if(m.local && window.PKlocal){
+      const patch = {
+        name: fv('pfName',host) || m.ar || '',
+        level: fv('pfLevel',host) || m.level || '',
+        birth: fv('pfBirth',host),
+        parentPhone: fv('pfPhone',host),
+        email: fv('pfMail',host),
+        school: fv('pfSchool',host),
+        note: fv('pfNote',host)
+      };
+      const errs = window.PKlocal._validate(patch);
+      if(errs.length){ toast(errs.map(k=>t(k)).join(' · '),'er',4600); return; }
+      window.PKlocal.update(patch);
+      toast(L_('حُفظت معلوماتك ✓','Informations enregistrées ✓'),'ok',2600);
+      rerender();
+      return;
+    }
+    /* ── حساب قديم (Google) ── */
     const a=$('#pfAr',host), b=$('#pfFr',host);
-    const val=((b&&b.value.trim()) || (a&&a.value.trim()) || me().fr || me().ar || '');
+    const val=((b&&b.value.trim()) || (a&&a.value.trim()) || m.fr || m.ar || '');
     if(!val){ toast(L_('اكتب اسمك أولاً','Saisissez votre nom'),'wn',2600); return; }
     sv.disabled = true;
     const r = await window.PKdb.saveMyProfile({name:val});
@@ -636,10 +725,33 @@ function bindProfile(host){
     if(r && r.ok) toast(L_('حُفظ ملفك ✓','Profil enregistré ✓'),'ok',2600);
     else toast((r && r.msg) || L_('تعذّر الحفظ','Enregistrement impossible'),'er',4200);
   });
+  /* إرسال (أو إعادة إرسال) المعلومات إلى الأستاذة */
+  const sd = $('[data-send-teacher]',host);
+  if(sd) sd.addEventListener('click', async ()=>{
+    if(sd.dataset.busy) return;
+    sd.dataset.busy='1'; sd.disabled = true;
+    const p = window.PKlocal.profile() || {};
+    try{
+      await window.PKdb.addRegistration(p);
+      window.PKlocal.markSent(new Date().toISOString());
+      toast(L_('أُرسلت معلوماتك إلى الأستاذة ✓','Informations envoyées à la professeure ✓'),'ok',3200);
+      rerender();
+    }catch(err){
+      toast((window.PK && window.PK.err) ? window.PK.err(err) : L_('تعذّر الإرسال','Envoi impossible'),'er',5200);
+    }finally{ sd.disabled = false; delete sd.dataset.busy; }
+  });
   const gg=$('[data-google]',host); if(gg) gg.addEventListener('click',()=>{
     window.PKdb.loginGoogle().then(()=>toast(L_('تم الدخول بحساب Google ✓','Connexion Google réussie ✓'),'ok',2600))
       .catch(err=>toast((err&&(err.friendly||err.message))||L_('تعذّر الدخول','Connexion impossible'),'er',5200));});
   const lo=$('[data-logout]',host); if(lo) lo.addEventListener('click',()=>{
+    if(m.local && window.PKlocal){
+      if(window.confirm(t('regClearQ'))){
+        window.PKlocal.clear();
+        toast(L_('إلى اللقاء 👋','À bientôt 👋'),'info',1800);
+        setTimeout(()=>location.href='../index.html',700);
+      }
+      return;
+    }
     window.PKdb.logout(); toast(L_('إلى اللقاء 👋','À bientôt 👋'),'info',2200); setTimeout(()=>location.href='../index.html',900);});
   $$('[data-pref] button',host).forEach(b=> b.addEventListener('click',()=>{
     $$('[data-pref="'+b.closest('[data-pref]').dataset.pref+'"] button',host).forEach(x=>x.classList.toggle('on',x===b));

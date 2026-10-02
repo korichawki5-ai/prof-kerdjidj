@@ -114,7 +114,15 @@ const ERR = {
   'auth/web-storage-unsupported': ['المتصفح يمنع تخزين الجلسة — افتحي الموقع في نافذة عادية (لا وضع خاص).',
                           'Le navigateur bloque le stockage — ouvrez le site dans une fenêtre normale.'],
   'storage-off':         ['رفع الملفات غير متاح (خدمة التخزين صارت مدفوعة) — الصقي رابط Google Drive أو YouTube.',
-                          'Envoi de fichiers indisponible (stockage payant) — collez un lien Google Drive ou YouTube.']
+                          'Envoi de fichiers indisponible (stockage payant) — collez un lien Google Drive ou YouTube.'],
+  'pk/reg-name':         ['الاسم واللقب غير مكتمل — اكتب الاسم واللقب كاملين (3 أحرف على الأقل).',
+                          'Nom et prénom incomplets (3 caractères minimum).'],
+  'pk/reg-level':        ['لم يتم اختيار القسم/المستوى — اختر قسمك من القائمة.',
+                          'Niveau non sélectionné — choisissez votre niveau.'],
+  'pk/reg-phone':        ['رقم هاتف الولي غير صحيح — اكتب 10 أرقام (مثال: 0555000000).',
+                          'Téléphone du parent invalide — 10 chiffres (ex. : 0555000000).'],
+  'pk/reg-mail':         ['البريد الإلكتروني غير صالح — تحقّق من الكتابة (مثال: nom@gmail.com).',
+                          'Adresse e-mail invalide (ex. : nom@gmail.com).']
 };
 function friendly(err){
   const code = (err && (err.code || err.name)) || '';
@@ -296,6 +304,64 @@ async function approveUser(userId, studentId){
   }catch(err){ const e = friendly(err); return {ok:false, error:e.code, msg:e.friendly}; }
 }
 
+/* ───────── 4ter. طلبات التسجيل (استمارة التلميذ بلا حساب) ─────────
+   التلميذ يكتب معلوماته → تُحفظ في مجموعة registrations (سطر واحد لكل
+   طلب، بلا قراءة ولا تعديل من الزوّار) → تظهر للأستاذة في لوحتها.
+   القواعد تتحقّق من شكل الطلب ومن توقيته، فلا يستطيع أحد التلاعب.      */
+const REG_MAX = {name:80, level:10, birth:10, parentPhone:20, email:120, school:120, note:600};
+async function addRegistration(d){
+  d = d || {};
+  const clean = {status:'new'};
+  Object.keys(REG_MAX).forEach(k=>{ clean[k] = String(d[k]==null?'':d[k]).trim().slice(0, REG_MAX[k]); });
+  clean.email = clean.email.toLowerCase();
+  if(clean.name.length < 3)      throw friendly({code:'pk/reg-name'});
+  if(!clean.level)               throw friendly({code:'pk/reg-level'});
+  if(clean.parentPhone.replace(/\D/g,'').length < 9) throw friendly({code:'pk/reg-phone'});
+  if(clean.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean.email)) throw friendly({code:'pk/reg-mail'});
+  if(MOCK){
+    const id = 'local_'+Date.now().toString(36);
+    const doc = Object.assign({}, clean, {id, at:new Date().toISOString()});
+    if(Array.isArray(window.PKdata.registrations)) window.PKdata.registrations.unshift(doc);
+    return {ok:true, mock:true, id};
+  }
+  if(!db) throw friendly({code:'unavailable'});
+  const {ff} = FB;
+  const r = await ff.addDoc(ff.collection(db,'registrations'), Object.assign({}, clean, {at: ff.serverTimestamp()}));
+  return {ok:true, id:r.id};
+}
+/** الأستاذة فقط: كل الطلبات، الأحدث أولاً. */
+async function listRegistrations(){
+  if(MOCK) return (window.PKdata.registrations||[]).slice();
+  const {ff} = FB;
+  const snap = await ff.getDocs(ff.collection(db,'registrations'));
+  const out = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  out.sort((a,b)=>{
+    const ta = (a.at && a.at.seconds) || 0, tb = (b.at && b.at.seconds) || 0;
+    return tb - ta;
+  });
+  return out;
+}
+async function setRegistration(id, patch){
+  if(MOCK){
+    const list = window.PKdata.registrations||[];
+    const i = list.findIndex(r=>r.id===id);
+    if(i>=0) Object.assign(list[i], patch);
+    return {ok:true, mock:true};
+  }
+  const {ff} = FB;
+  await ff.updateDoc(ff.doc(db,'registrations',id), patch);
+  return {ok:true};
+}
+async function delRegistration(id){
+  if(MOCK){
+    window.PKdata.registrations = (window.PKdata.registrations||[]).filter(r=>r.id!==id);
+    return {ok:true, mock:true};
+  }
+  const {ff} = FB;
+  await ff.deleteDoc(ff.doc(db,'registrations',id));
+  return {ok:true};
+}
+
 /* ───────── 4bis. HYDRATATION : Firestore → cache PKdata (zéro démo) ─────────
    Tout le contenu visible vient de la base : ce que la professeure publie.
    hydrate()      : collections publiques (leçons, exercices, annonces, groupes)
@@ -372,6 +438,8 @@ async function hydrateMe(user){
       }catch(e){ console.warn('[PK] lecture « messages » refusée :', (e&&e.code)||e); }
       try{ D.pending = await pendingUsers(); }
       catch(e){ D.pending = []; }
+      try{ D.registrations = await listRegistrations(); }
+      catch(e){ console.warn('[PK] lecture « registrations » refusée :', (e&&e.code)||e); D.registrations = []; }
     }
     return me;
   }catch(e){ console.warn('[PK] hydrateMe:', (e&&e.code)||e, e); D.me = null; return null; }
@@ -636,6 +704,7 @@ window.PKdb = {
   init, MOCK, get mock(){return MOCK;},
   loginGoogle, logout, currentUser, syncProfile, saveMyProfile,
   findMyFiche, linkStudent, backfillLinks, pendingUsers, approveUser,
+  addRegistration, listRegistrations, setRegistration, delRegistration,
   col, docGet, settings, set, add, remove,
   loadSettings, saveSettings, applySettings, resetSettings,
   saveSubmission, markLessonDone, upload,
