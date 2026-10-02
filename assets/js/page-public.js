@@ -18,7 +18,7 @@ function pageHead(o){
   return `<section class="sec" style="padding-block:clamp(46px,7vw,84px) clamp(24px,4vw,40px)">
     <div class="ct">
       <nav class="crumb rv">${o.crumbs||''}</nav>
-      <div class="g" style="grid-template-columns:1fr auto;gap:34px;align-items:end">
+      <div class="g pub-hd" style="gap:34px;align-items:end">
         <div>
           ${o.badge?`<span class="bd bd--wt rv">${svg(o.badgeIcon||'spark','width="13" height="13"')}<span data-i18n="${o.badgeKey||''}">${o.badge}</span></span>`:''}
           <h1 class="hd__t rv" style="font-size:clamp(1.85rem,4.4vw,3.05rem);margin-block:14px 12px">${o.title}</h1>
@@ -118,7 +118,7 @@ function lessons(){
   </section>
 
   <section class="sec">
-    <div class="ct"><div class="g g2 cas" style="grid-template-columns:1fr 1fr;align-items:start">
+    <div class="ct"><div class="g g2 cas" style="align-items:start">
       <div class="cd rv"><div class="cd__t mb4" data-i18n="lsEdS2">${L_('كيف تستعمل الدرس؟','Comment exploiter un cours ?')}</div>
         ${[[1,t('stp1t')||'اقرأ الملخّص',t('stp1d')||'ملخّص مركّز في صفحة واحدة.'],
            [2,t('stp2t')||'شاهد المثال',t('stp2d')||'أمثلة محلولة من المنهاز الجزائري.'],
@@ -345,7 +345,7 @@ function about(){
            'Professeure de français au cycle moyen — Khemis Miliana, wilaya d’Aïn Defla. Plus de 12 ans d’enseignement du français, de la 1AM à la 4AM, et de préparation au BEM.')
   }) + `
   <section class="sec" style="padding-block:0">
-    <div class="ct"><div class="g g-main" style="grid-template-columns:340px 1fr;align-items:start">
+    <div class="ct"><div class="g g-main adm-split adm-split--rev" style="--adm-side:340px">
       <div class="tch__c rv">
         <div class="tch__ph">${svg('user')}</div>
         <div class="cd mt4" style="padding:16px">
@@ -408,7 +408,7 @@ function faq(){
            'Tout ce que l’élève et son parent doivent savoir avant de commencer — sans aucune ambiguïté sur les notes scolaires.')
   }) + `
   <section class="sec" style="padding-block:0">
-    <div class="ct"><div class="g g-main" style="grid-template-columns:1fr 320px;align-items:start">
+    <div class="ct"><div class="g g-main adm-split" style="--adm-side:320px">
       <div class="cd rv" style="padding:6px 22px">
         ${items.map(([q,a],i)=>`<details class="acc"${i===1?' open':''}>
           <summary>${t(q)}</summary><div class="acc__b">${t(a)}</div></details>`).join('')}
@@ -448,14 +448,14 @@ function contact(){
            'Pour une place, une inscription, un cours particulier ou toute question pédagogique — Khemis Miliana, wilaya d’Aïn Defla.')
   }) + `
   <section class="sec" style="padding-block:0">
-    <div class="ct"><div class="g g-main" style="grid-template-columns:1fr 380px;align-items:start">
+    <div class="ct"><div class="g g-main adm-split" style="--adm-side:380px">
       <div class="cd rv">
         <div class="cd__h"><div><div class="cd__t" data-i18n="ctForm">${L_('أرسل رسالة','Envoyer un message')}</div>
           <div class="cd__s">${L_('كل الحقول المطلوبة معلّمة بـ *','Les champs obligatoires sont marqués d’un *')}</div></div></div>
         <form id="ctForm" novalidate>
           <div class="g g2" style="gap:16px">
             <div class="fld req"><label>${L_('الاسم واللقب *','Nom et prénom *')}</label>
-              <input class="inp" name="name" required placeholder="${L_('مثال: سارة رحماني','Ex. : Sara Rahmani')}"></div>
+              <input class="inp" name="name" required placeholder="${L_('الاسم واللقب','Nom et prénom')}"></div>
             <div class="fld req"><label>${L_('الهاتف أو البريد *','Téléphone ou e-mail *')}</label>
               <input class="inp" name="contact" dir="ltr" required placeholder="0555… / nom@mail.com"></div>
             <div class="fld"><label>${L_('المستوى','Niveau')}</label>
@@ -502,15 +502,31 @@ function contact(){
 }
 function bindContact(){
   const f=$('#ctForm'); if(!f) return;
-  f.addEventListener('submit',e=>{
+  /* Avant : la promesse d'écriture n'était jamais surveillée → le visiteur
+     voyait « message envoyé » même si Firestore refusait (règle, réseau). */
+  f.addEventListener('submit', async e=>{
     e.preventDefault();
     const need=['name','contact','msg']; let ok=true;
     need.forEach(n=>{ const el=f.elements[n]; const bad=!el.value.trim();
       el.classList.toggle('err-msg',bad); if(bad) ok=false; });
     if(!ok){ toast(L_('أكمل الحقول المطلوبة *','Complétez les champs obligatoires *'),'er',2600); return; }
-    window.PKdb.add('messages',{from:f.elements.name.value, contact:f.elements.contact.value,
-      level:f.elements.level.value, subject:f.elements.subject.value, body:f.elements.msg.value, role:'contact'});
-    f.reset(); toast(L_('أُرسلت رسالتك ✓ سنرد قريباً.','Votre message est envoyé ✓ Nous répondrons bientôt.'),'ok',3600);
+    const btn=f.querySelector('button[type="submit"]');
+    const label=btn?btn.innerHTML:'';
+    if(btn){ btn.disabled=true; btn.innerHTML=t('sending'); }
+    try{
+      await window.PKdb.add('messages',{from:f.elements.name.value.trim().slice(0,120),
+        contact:f.elements.contact.value.trim().slice(0,160),
+        level:f.elements.level?f.elements.level.value:'',
+        subject:f.elements.subject?f.elements.subject.value:'',
+        body:f.elements.msg.value.trim().slice(0,3000), role:'contact'});
+      f.reset();
+      toast(L_('أُرسلت رسالتك ✓ سنرد قريباً.','Votre message est envoyé ✓ Nous répondrons bientôt.'),'ok',3600);
+    }catch(err){
+      toast(t('sendErrContact'),'er',5200);
+      if(window.console) console.warn('[PK] contact :', (err&&err.code)||err);
+    }finally{
+      if(btn){ btn.disabled=false; btn.innerHTML=label; }
+    }
   });
 }
 

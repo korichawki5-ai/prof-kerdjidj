@@ -575,3 +575,14 @@ html[data-theme="dark"] .stk__n{color:#FFC94D}
 .gate__b:hover{transform:translateY(-2px);border-color:var(--ac);box-shadow:var(--s2)}
 .gate__b b{font-size:1.02rem}
 @media (max-width:560px){.gate__lv{grid-template-columns:1fr}}
+
+/* ══════════════════════════════════════════════════════════════
+   BANDEAU « COMPTE EN ATTENTE DE CONFIRMATION » (espace élève)
+   ══════════════════════════════════════════════════════════════ */
+.pend{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);
+  border-inline-start:3px solid var(--wn);border-radius:var(--r3);padding:14px 18px;margin-block-end:22px;box-shadow:var(--s1)}
+.pend .ico{flex:none}
+@media (max-width:760px){
+  .pend{flex-wrap:wrap}
+  .pend .btn{width:100%}
+}

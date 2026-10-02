@@ -9,6 +9,8 @@
       "README.md",
       "SETUP-AR.md",
       "QUICKSTART-AR.md",
+      "FIXES.md",
+      "README-NASHR.md",
       "deploy.sh",
       "deploy.bat",
       "plan/**"

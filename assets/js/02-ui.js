@@ -7,6 +7,20 @@
 "use strict";
 const $  = (s,c)=> (c||document).querySelector(s);
 const $$ = (s,c)=> Array.from((c||document).querySelectorAll(s));
+
+/* ══════════ 0. SÉCURITÉ : échappement HTML ══════════
+   Tout texte saisi par un utilisateur (message du formulaire de contact,
+   nom d'élève, réponse de la professeure…) doit passer par esc() avant
+   d'être injecté dans un gabarit : sinon un visiteur peut injecter du
+   code dans la page (XSS). Les contenus rédigés par la professeure
+   (cours HTML, annonces) ne sont PAS échappés : ils sont volontairement
+   riches et réservés à l'admin. */
+function esc(v){
+  return String(v==null ? '' : v).replace(/[&<>"']/g, c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
 const store = {
   get(k,d){ try{const v=localStorage.getItem(k); return v===null?d:v;}catch(e){return d;} },
   set(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
@@ -474,8 +488,8 @@ function boot(active){
 
 /* ══════════ API PUBLIQUE ══════════ */
 window.PK = {
-  $, $$, store, boot, mountChrome, buildHeader, buildFooter, logo, icon, svg, ICONS,
-  toast, modal, openPalette, setPalette,
+  $, $$, esc, store, boot, mountChrome, buildHeader, buildFooter, logo, icon, svg, ICONS,
+  toast, modal, openPalette, setPalette, err: (e)=> (window.PKdb && window.PKdb.errMsg ? window.PKdb.errMsg(e) : String(e&&e.message||e)),
   initReveal, initCounters, initProgress, replayFx, initSpot, initTabs, confetti,
   applyTheme, toggleTheme,
   /* traduction : t('clé') → texte dans la langue courante */

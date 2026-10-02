@@ -53,6 +53,12 @@ async function init(){
     db      = ff.getFirestore(app);
     storage = fs.getStorage(app);
     FB = {fa, fu, ff, fs};
+    /* retour d'une connexion par redirection (mobile) : on remonte l'erreur
+       éventuelle pour que l'interface l'affiche en clair */
+    fu.getRedirectResult(auth).catch(err=>{
+      if(err && err.code && err.code !== 'auth/no-auth-event')
+        document.dispatchEvent(new CustomEvent('pk:auth-error',{detail:friendly(err)}));
+    });
     let authOnce = ()=>{};
     const firstAuth = new Promise(res=>{ authOnce = res; });
     fu.onAuthStateChanged(auth, u => {
@@ -68,6 +74,7 @@ async function init(){
     await loadSettings();
     await hydrate();      // leçons / exercices / annonces / groupes → PKdata
     await firstAuth;      // profil réel (users/{uid} + progress) → PKdata.me
+    if(currentUser()) await hydrate();   // relecture après connexion (groupes…)
     return {mock:false, auth, db, storage};
   }catch(err){
     console.error('[PK] Échec d’initialisation Firebase :', err);
@@ -77,6 +84,48 @@ async function init(){
 }
 
 /* ───────── 3. AUTHENTIFICATION GOOGLE ───────── */
+/* Erreurs Firebase → phrase claire (AR ⇄ FR). Aucun échec silencieux. */
+const ERR = {
+  'permission-denied':   ['ليست لديك صلاحية لهذا الإجراء — تأكّدي من تسجيل الدخول بحساب الأستاذة، ومن نشر قواعد Firestore الجديدة.',
+                          'Action non autorisée — connectez-vous avec le compte admin et vérifiez les règles Firestore.'],
+  'unavailable':         ['تعذّر الاتصال بالخادم — تحقّقي من اتصال الإنترنت ثم أعيدي المحاولة.',
+                          'Serveur injoignable — vérifiez votre connexion puis réessayez.'],
+  'unauthenticated':     ['انتهت الجلسة — أعيدي تسجيل الدخول.', 'Session expirée — reconnectez-vous.'],
+  'failed-precondition': ['العملية مرفوضة من قاعدة البيانات (شرط غير محقّق أو فهرس ناقص).',
+                          'Opération refusée par la base (index manquant ou condition non remplie).'],
+  'resource-exhausted':  ['تم تجاوز الحصة المجانية مؤقتاً — أعيدي المحاولة بعد قليل.',
+                          'Quota momentanément dépassé — réessayez dans un instant.'],
+  'not-found':           ['العنصر المطلوب غير موجود.', 'Élément introuvable.'],
+  'invalid-argument':    ['بيانات غير صالحة — تحقّقي من الحقول المدخلة.', 'Données invalides — vérifiez les champs.'],
+  'auth/popup-blocked':  ['المتصفح منع نافذة الدخول — سنعيد المحاولة بصفحة كاملة…',
+                          'Le navigateur a bloqué la fenêtre — nouvelle tentative en pleine page…'],
+  'auth/popup-closed-by-user': ['أُغلقت نافذة الدخول قبل إتمامه — أعيدي المحاولة.',
+                          'Fenêtre fermée avant la fin — réessayez.'],
+  'auth/cancelled-popup-request': ['نافذة دخول واحدة في كل مرة — أعيدي المحاولة.',
+                          'Une seule fenêtre à la fois — réessayez.'],
+  'auth/unauthorized-domain': ['هذا النطاق غير مصرّح به في Firebase → Authentication → Authorized domains. أضيفي نطاق الموقع (prof-kerdjidj.web.app و prof-kerdjidj.firebaseapp.com) ثم أعيدي المحاولة.',
+                          'Domaine non autorisé dans Firebase → Authentication → Authorized domains. Ajoutez prof-kerdjidj.web.app puis réessayez.'],
+  'auth/operation-not-allowed': ['تسجيل الدخول بـ Google غير مفعّل — فعّليه من Firebase Console → Authentication → Sign-in method.',
+                          'Connexion Google désactivée — activez-la dans Firebase Console → Authentication → Sign-in method.'],
+  'auth/network-request-failed': ['تعذّر الوصول إلى خدمة الدخول — تحقّقي من الإنترنت.',
+                          'Service de connexion injoignable — vérifiez la connexion.'],
+  'auth/internal-error': ['خطأ داخلي في خدمة الدخول — أعيدي المحاولة.', 'Erreur interne du service de connexion — réessayez.'],
+  'auth/account-exists-with-different-credential': ['هذا البريد مسجَّل بطريقة دخول أخرى.', 'Cet e-mail utilise un autre mode de connexion.'],
+  'auth/web-storage-unsupported': ['المتصفح يمنع تخزين الجلسة — افتحي الموقع في نافذة عادية (لا وضع خاص).',
+                          'Le navigateur bloque le stockage — ouvrez le site dans une fenêtre normale.'],
+  'storage-off':         ['رفع الملفات غير متاح (خدمة التخزين صارت مدفوعة) — الصقي رابط Google Drive أو YouTube.',
+                          'Envoi de fichiers indisponible (stockage payant) — collez un lien Google Drive ou YouTube.']
+};
+function friendly(err){
+  const code = (err && (err.code || err.name)) || '';
+  const pair = ERR[code];
+  const ar = window.PKi18n ? window.PKi18n.current() === 'ar' : true;
+  const msg = pair ? (ar ? pair[0] : pair[1])
+            : (ar ? 'حدث خطأ غير متوقّع — أعيدي المحاولة.' : 'Une erreur inattendue est survenue — réessayez.');
+  if(window.console && console.warn) console.warn('[PK] erreur :', code || err, err);
+  const e = new Error(msg); e.code = code; e.friendly = msg; e.raw = err;
+  return e;
+}
 async function loginGoogle(){
   if(MOCK){
     /* لا هويات مزيفة: المنصة غير موصولة بعد */
@@ -87,8 +136,23 @@ async function loginGoogle(){
   }
   const p = new FB.fu.GoogleAuthProvider();
   p.setCustomParameters({prompt:'select_account'});
-  const cred = await FB.fu.signInWithPopup(auth, p);
-  return cred.user;
+  try{
+    const cred = await FB.fu.signInWithPopup(auth, p);
+    return cred.user;
+  }catch(err){
+    const code = (err && err.code) || '';
+    /* Sur mobile — et dans les navigateurs intégrés (Facebook/Instagram) —
+       la fenêtre surgissante est presque toujours bloquée : on bascule
+       automatiquement sur la connexion en pleine page, qui marche partout. */
+    if(code === 'auth/popup-blocked'
+    || code === 'auth/operation-not-supported-in-this-environment'
+    || code === 'auth/cancelled-popup-request'
+    || code === 'auth/web-storage-unsupported'){
+      try{ await FB.fu.signInWithRedirect(auth, p); return null; }
+      catch(err2){ throw friendly(err2); }
+    }
+    throw friendly(err);
+  }
 }
 async function logout(){
   if(MOCK){ try{sessionStorage.removeItem('pk-user');}catch(e){} }
@@ -100,28 +164,136 @@ function currentUser(){
   return FB ? FB.fu.getAuth().currentUser : null;
 }
 
-/* ───────── 4. PROFIL : liaison compte Google ↔ fiche élève ───────── */
+/* ───────── 4. PROFIL : liaison compte Google ↔ fiche élève ─────────
+   · la professeure crée la fiche élève AVEC l'e-mail Google ;
+   · au premier login, on retrouve la fiche par l'index studentLinks/{email}
+     (l'élève ne peut pas lister la collection students) → role « student » ;
+   · sans fiche → role « pending » : l'espace élève reste accessible
+     (contenu de révision) mais l'élève voit « en attente de confirmation ». */
+async function findMyFiche(user){
+  const {ff} = FB;
+  const mail = String((user && user.email) || '').toLowerCase();
+  if(!mail) return null;
+  /* 1) index fiable : studentLinks/{email} → studentId */
+  try{
+    const link = await ff.getDoc(ff.doc(db,'studentLinks',mail));
+    if(link.exists() && link.data().studentId){
+      const s = await ff.getDoc(ff.doc(db,'students',link.data().studentId));
+      if(s.exists()) return {id:s.id, ...s.data()};
+    }
+  }catch(e){ /* index absent ou non autorisé → on tente la requête */ }
+  /* 2) repli : fiche portant googleEmail == mon e-mail (règle list ciblée) */
+  try{
+    const q = ff.query(ff.collection(db,'students'), ff.where('googleEmail','==',mail));
+    const qs = await ff.getDocs(q);
+    if(!qs.empty) return {id:qs.docs[0].id, ...qs.docs[0].data()};
+  }catch(e){}
+  return null;
+}
 async function syncProfile(user){
   if(!user || MOCK) return null;
   const {ff} = FB;
   const ref = ff.doc(db, 'users', user.uid);
   const snap = await ff.getDoc(ref);
-  if(!snap.exists()){
-    // cherche une fiche élève liée par e-mail (créée par la professeure)
-    const q = ff.query(ff.collection(db,'students'), ff.where('googleEmail','==',user.email));
-    const qs = await ff.getDocs(q);
-    const student = qs.empty ? null : {...qs.docs[0].data(), id:qs.docs[0].id};
-    await ff.setDoc(ref, {
-      uid:user.uid, email:user.email, name:user.displayName, photoURL:user.photoURL,
-      role: student ? 'student' : 'pending',
-      linkedStudentId: student ? student.id : null,
-      createdAt: ff.serverTimestamp(), lastLoginAt: ff.serverTimestamp()
-    });
-    return {role: student ? 'student' : 'pending', student};
+  if(snap.exists()){
+    const data = snap.data();
+    const patch = {lastLoginAt: ff.serverTimestamp(),
+      email: user.email || data.email || '',
+      photoURL: user.photoURL || data.photoURL || null};
+    /* Élève pas encore relié à sa fiche : on retente la liaison à chaque
+       connexion (la professeure a pu créer la fiche entre-temps).
+       Jamais de rétrogradation d'un compte admin. */
+    if(!data.linkedStudentId && data.role !== 'admin'){
+      const st = await findMyFiche(user);
+      if(st){
+        patch.linkedStudentId = st.id;
+        patch.role = 'student';
+        if(st.level && !data.level) patch.level = st.level;
+      }
+    }
+    try{ await ff.updateDoc(ref, patch); }
+    catch(e){ console.warn('[PK] mise à jour du profil refusée :', (e && e.code) || e); }
+    return Object.assign({}, data, patch, {lastLoginAt: data.lastLoginAt});
   }
-  const data = snap.data();
-  await ff.updateDoc(ref, {lastLoginAt: ff.serverTimestamp()});
-  return data;
+  /* premier passage : on cherche la fiche créée par la professeure */
+  const student = await findMyFiche(user);
+  const prof = {
+    uid:user.uid, email:user.email, name:user.displayName || user.email,
+    photoURL:user.photoURL || null,
+    role: student ? 'student' : 'pending',
+    linkedStudentId: student ? student.id : null,
+    level: (student && student.level) ? student.level : null,
+    createdAt: ff.serverTimestamp(), lastLoginAt: ff.serverTimestamp()
+  };
+  await ff.setDoc(ref, prof);   // si la règle refuse : l'erreur remonte à l'appelant
+  return prof;
+}
+/* Enregistre les informations modifiables par l'élève lui-même. */
+async function saveMyProfile(patch){
+  if(MOCK){ const D=window.PKdata; if(D.me) Object.assign(D.me, patch); return {ok:true, mock:true}; }
+  const u = currentUser();
+  if(!u) return {ok:false, error:'not-signed', msg:friendly({code:'unauthenticated'}).friendly};
+  const allowed = ['name','photoURL'];
+  const clean = {};
+  allowed.forEach(k=>{ if(typeof patch[k] === 'string' && patch[k].trim()) clean[k] = patch[k].trim().slice(0,80); });
+  if(!Object.keys(clean).length) return {ok:false, error:'empty'};
+  const {ff} = FB;
+  try{
+    await ff.setDoc(ff.doc(db,'users',u.uid), clean, {merge:true});
+    if(window.PKdata.me) Object.assign(window.PKdata.me, clean, {ar:clean.name||window.PKdata.me.ar, fr:clean.name||window.PKdata.me.fr});
+    document.dispatchEvent(new CustomEvent('pk:me',{detail:window.PKdata.me}));
+    return {ok:true};
+  }catch(err){ const e = friendly(err); return {ok:false, error:e.code, msg:e.friendly}; }
+}
+/* ── Admin : index e-mail → fiche (créé/écrit uniquement par la professeure) ── */
+async function linkStudent(email, studentId){
+  if(MOCK) return {ok:true, mock:true};
+  const mail = String(email||'').trim().toLowerCase();
+  if(!mail || !studentId) return {ok:false, error:'invalid'};
+  const {ff} = FB;
+  try{
+    await ff.setDoc(ff.doc(db,'studentLinks',mail), {studentId, email:mail, at:ff.serverTimestamp()});
+    await ff.setDoc(ff.doc(db,'students',studentId), {googleEmail:mail, linked:true}, {merge:true});
+    return {ok:true};
+  }catch(err){ const e = friendly(err); return {ok:false, error:e.code, msg:e.friendly}; }
+}
+/* Recrée l'index studentLinks à partir des fiches ayant déjà un googleEmail
+   (migration douce : aucune donnée supprimée ni modifiée, uniquement l'index). */
+async function backfillLinks(){
+  if(MOCK) return {ok:true, added:0, mock:true};
+  const {ff} = FB;
+  try{
+    const snap = await ff.getDocs(ff.collection(db,'students'));
+    let added = 0;
+    for(const d of snap.docs){
+      const mail = String(d.data().googleEmail||'').trim().toLowerCase();
+      if(!mail) continue;
+      await ff.setDoc(ff.doc(db,'studentLinks',mail), {studentId:d.id, email:mail, at:ff.serverTimestamp()});
+      added++;
+    }
+    return {ok:true, added};
+  }catch(err){ const e = friendly(err); return {ok:false, error:e.code, msg:e.friendly}; }
+}
+/* ── Admin : demandes en attente (comptes sans fiche reliée) ── */
+async function pendingUsers(){
+  if(MOCK) return [];
+  const {ff} = FB;
+  try{
+    const q = ff.query(ff.collection(db,'users'), ff.where('role','==','pending'));
+    const s = await ff.getDocs(q);
+    return s.docs.map(d=>({id:d.id, ...d.data()}));
+  }catch(err){ const e = friendly(err); if(window.console) console.warn('[PK] pending :', e.code); return []; }
+}
+/* ── Admin : confirmer un compte en attente (rôle + fiche reliée) ── */
+async function approveUser(userId, studentId){
+  if(MOCK) return {ok:true, mock:true};
+  const {ff} = FB;
+  try{
+    const patch = {role:'student'};
+    if(studentId) patch.linkedStudentId = studentId;
+    await ff.setDoc(ff.doc(db,'users',userId), patch, {merge:true});
+    return {ok:true};
+  }catch(err){ const e = friendly(err); return {ok:false, error:e.code, msg:e.friendly}; }
 }
 
 /* ───────── 4bis. HYDRATATION : Firestore → cache PKdata (zéro démo) ─────────
@@ -131,18 +303,20 @@ async function syncProfile(user){
 async function hydrate(){
   if(MOCK || !db) return;
   const {ff} = FB, D = window.PKdata;
-  try{
-    const [ls, ex, an, gr] = await Promise.all([
-      ff.getDocs(ff.collection(db,'lessons')),
-      ff.getDocs(ff.collection(db,'exercises')),
-      ff.getDocs(ff.collection(db,'announcements')),
-      ff.getDocs(ff.collection(db,'groups'))
-    ]);
-    D.lessons       = ls.docs.map(d=>({id:d.id, ...d.data()}));
-    D.exercises     = ex.docs.map(d=>({id:d.id, ...d.data()}));
-    D.announcements = an.docs.map(d=>({id:d.id, ...d.data()}));
-    D.groups        = gr.docs.map(d=>({id:d.id, ...d.data()}));
-  }catch(e){ console.warn('[PK] hydrate:', e); }
+  /* allSettled : si UNE collection est refusée (règles, réseau), les autres
+     sont quand même chargées — avant, tout le site restait vide. */
+  const jobs = [
+    ['lessons',       ()=>ff.getDocs(ff.collection(db,'lessons'))],
+    ['exercises',     ()=>ff.getDocs(ff.collection(db,'exercises'))],
+    ['announcements', ()=>ff.getDocs(ff.collection(db,'announcements'))],
+    ['groups',        ()=>ff.getDocs(ff.collection(db,'groups'))]
+  ];
+  const res = await Promise.allSettled(jobs.map(j=>j[1]()));
+  res.forEach((r,i)=>{
+    const key = jobs[i][0];
+    if(r.status === 'fulfilled') D[key] = r.value.docs.map(d=>({id:d.id, ...d.data()}));
+    else if(window.console) console.warn('[PK] lecture « '+key+' » refusée :', (r.reason && r.reason.code) || r.reason);
+  });
 }
 async function hydrateMe(user){
   const D = window.PKdata;
@@ -150,8 +324,21 @@ async function hydrateMe(user){
   const {ff} = FB;
   try{
     const u = await ff.getDoc(ff.doc(db,'users',user.uid));
-    const prof = u.exists() ? u.data() : null;
-    if(!prof){ D.me = null; return null; }
+    let prof = u.exists() ? u.data() : null;
+    if(!prof){
+      /* profil manquant : on tente de le (re)créer une fois — puis, en dernier
+         recours, on affiche un profil minimal « pending » plutôt que de
+         renvoyer l'élève vers un écran de connexion sans fin. */
+      try{ prof = await syncProfile(user); }catch(e){ console.warn('[PK] création du profil refusée :', (e&&e.code)||e); }
+      if(!prof){
+        D.me = {id:user.uid, uid:user.uid, role:'pending', level:null,
+                ar:user.displayName||'', fr:user.displayName||'', email:user.email||'',
+                photoURL:user.photoURL||null, group:null, school:null, linked:false,
+                xp:0, streak:0, best:0, lessonsDone:0, exDone:0, quizDone:0,
+                correct:0, answered:0, minutes:0, mastery:{}, badges:[], doneIds:[]};
+        return D.me;
+      }
+    }
     let student = null;
     if(prof.linkedStudentId){
       const s = await ff.getDoc(ff.doc(db,'students',prof.linkedStudentId)).catch(()=>null);
@@ -178,12 +365,16 @@ async function hydrateMe(user){
       try{
         const st = await ff.getDocs(ff.collection(db,'students'));
         D.students = st.docs.map(d=>({id:d.id, ...d.data()}));
+      }catch(e){ console.warn('[PK] lecture « students » refusée :', (e&&e.code)||e); }
+      try{
         const ms = await ff.getDocs(ff.collection(db,'messages'));
         D.messages = ms.docs.map(d=>({id:d.id, ...d.data()}));
-      }catch(e){}
+      }catch(e){ console.warn('[PK] lecture « messages » refusée :', (e&&e.code)||e); }
+      try{ D.pending = await pendingUsers(); }
+      catch(e){ D.pending = []; }
     }
     return me;
-  }catch(e){ console.warn('[PK] hydrateMe:', e); D.me = null; return null; }
+  }catch(e){ console.warn('[PK] hydrateMe:', (e&&e.code)||e, e); D.me = null; return null; }
 }
 /** بوابة المستوى: اختيار السنة الدراسية عند أول دخول — يُحفظ في users/{uid} */
 async function chooseLevel(lv){
@@ -196,12 +387,26 @@ async function chooseLevel(lv){
     }catch(e){}
     return {ok:true};
   }
-  const u = currentUser(); if(!u) return {ok:false};
+  const u = currentUser();
+  if(!u){
+    const e = friendly({code:'unauthenticated'});
+    return {ok:false, error:e.code, msg:e.friendly};
+  }
   const {ff} = FB;
   const ref = ff.doc(db,'users',u.uid);
-  const cur = await ff.getDoc(ref);
-  const role = (cur.exists() && cur.data().role === 'admin') ? 'admin' : 'student';
-  await ff.updateDoc(ref, {level:lv, role});
+  try{
+    let role = 'student';
+    try{
+      const cur = await ff.getDoc(ref);
+      if(cur.exists() && cur.data().role === 'admin') role = 'admin';
+    }catch(e){ /* document illisible : on écrit le minimum utile */ }
+    /* setDoc + merge : crée le document s'il manque, sinon le complète.
+       On n'écrit JAMAIS le rôle admin depuis le client. */
+    await ff.setDoc(ref, {level:lv, role}, {merge:true});
+  }catch(err){
+    const e = friendly(err);
+    return {ok:false, error:e.code, msg:e.friendly};
+  }
   await hydrateMe(u);
   document.dispatchEvent(new CustomEvent('pk:me',{detail:D.me}));
   return {ok:true};
@@ -429,11 +634,13 @@ async function upload(file, path){
 /* ───────── 9. EXPORT ───────── */
 window.PKdb = {
   init, MOCK, get mock(){return MOCK;},
-  loginGoogle, logout, currentUser, syncProfile,
+  loginGoogle, logout, currentUser, syncProfile, saveMyProfile,
+  findMyFiche, linkStudent, backfillLinks, pendingUsers, approveUser,
   col, docGet, settings, set, add, remove,
   loadSettings, saveSettings, applySettings, resetSettings,
   saveSubmission, markLessonDone, upload,
   hydrate, hydrateMe, chooseLevel, _testSession,
+  friendly, errMsg: (e)=>friendly(e).friendly,
   get fb(){return {app,auth,db,storage,FB};}
 };
 })();

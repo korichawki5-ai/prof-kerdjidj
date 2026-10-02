@@ -1,30 +1,55 @@
 rules_version = '2';
 
 /* ════════════════════════════════════════════════════════════════
-   Plateforme Prof. Kerdjidj — règles Firestore
+   Plateforme Prof. Kerdjidj — règles Firestore  (v2 — corrigées)
+   ────────────────────────────────────────────────────────────────
    Principes :
     · contenu pédagogique public en LECTURE (site vitrine) ;
-    · un élève lit uniquement SES données ;
-    · l'ÉCRITURE est réservée à la professeure (role == "admin") ;
-    · AUCUNE note scolaire : les documents ne portent que de la
-      progression (XP, maîtrise, séries, badges).
+    · un élève lit/écrit UNIQUEMENT sa propre progression ;
+    · la fiche élève (students) reste privée : l'admin gère tout,
+      l'élève ne lit que la fiche reliée à son compte Google ;
+    · l'ÉCRITURE du contenu est réservée à la professeure (role admin) ;
+    · la page « Contact » peut créer un message SANS compte, mais le
+      document est strictement encadré (clés autorisées + tailles) ;
+    · AUCUNE note scolaire : uniquement de la progression (XP, maîtrise,
+      séries, badges).
    ════════════════════════════════════════════════════════════════ */
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signed()        { return request.auth != null; }
-    function uid()           { return request.auth.uid; }
-    function role()          { return get(/databases/$(database)/documents/users/$(uid())).data.role; }
-    function isAdmin()       { return signed() && role() == 'admin'; }
-    function isSelf(id)      { return signed() && uid() == id; }
+    /* ───────── Helpers ───────── */
+    function signed()  { return request.auth != null; }
+    function uid()     { return request.auth.uid; }
+    function email()   { return request.auth.token.email == null ? '' : request.auth.token.email.lower(); }
 
-    /* ── Paramètres du site : lecture publique, écriture admin ── */
+    function userPath(id)    { return /databases/$(database)/documents/users/$(id); }
+    function studentPath(id) { return /databases/$(database)/documents/students/$(id); }
+
+    function hasUser()  { return signed() && exists(userPath(uid())); }
+    function me()       { return get(userPath(uid())).data; }
+    function role()     { return hasUser() ? me().role : null; }
+    function isAdmin()  { return signed() && role() == 'admin'; }
+    function isSelf(id) { return signed() && uid() == id; }
+
+    /* fiche élève reliée au compte connecté (users/{uid}.linkedStudentId) */
+    function linkedId() { return (hasUser() && 'linkedStudentId' in me()) ? me().linkedStudentId : null; }
+    function isMine(sid){ return sid != null && (isSelf(sid) || (linkedId() != null && linkedId() == sid)); }
+
+    /* on ne peut relier que la fiche dont l'e-mail correspond au compte Google */
+    function linkAllowed() {
+      return !('linkedStudentId' in request.resource.data)
+          || request.resource.data.linkedStudentId == null
+          || (exists(studentPath(request.resource.data.linkedStudentId))
+              && get(studentPath(request.resource.data.linkedStudentId)).data.googleEmail.lower() == email());
+    }
+
+    /* ───────── Paramètres du site : lecture publique, écriture admin ───────── */
     match /settings/{doc} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    /* ── Contenu pédagogique : lecture publique ── */
+    /* ───────── Contenu pédagogique : lecture publique, écriture admin ───────── */
     match /levels/{doc}      { allow read: if true; allow write: if isAdmin(); }
     match /axes/{doc}        { allow read: if true; allow write: if isAdmin(); }
     match /lessons/{doc}     { allow read: if true; allow write: if isAdmin(); }
@@ -32,60 +57,114 @@ service cloud.firestore {
     match /quizzes/{doc}     { allow read: if true; allow write: if isAdmin(); }
     match /questions/{doc}   { allow read: if true; allow write: if isAdmin(); }
     match /announcements/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /groups/{doc}      { allow read: if signed(); allow write: if isAdmin(); }
 
-    /* ── Élèves : l'admin gère tout, l'élève ne lit que sa fiche ── */
-    match /students/{studentId} {
-      allow read:   if isAdmin() || isSelf(studentId);
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (isSelf(studentId) &&
-                      !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['xp','level','group','status','linked','mastery','badges','streak']));
+    /* Horaires des groupes : information publique (emploi du temps vitrine),
+       aucune donnée personnelle d'élève dans ces documents. */
+    match /groups/{doc}      { allow read: if true; allow write: if isAdmin(); }
+
+    /* ───────── Comptes : chacun le sien, l'admin tout ─────────
+       L'élève peut créer son profil (role pending ou student) mais ne peut
+       JAMAIS s'attribuer le rôle admin ni se relier à la fiche d'un autre. */
+    match /users/{userId} {
+      allow read:   if isAdmin() || isSelf(userId);
+      allow create: if isSelf(userId)
+                    && request.resource.data.uid == userId
+                    && request.resource.data.role in ['pending','student']
+                    && linkAllowed();
+      allow update: if isAdmin()
+                    || (isSelf(userId)
+                        && (!('uid' in resource.data) || request.resource.data.uid == resource.data.uid)
+                        && request.resource.data.role in ['pending','student']
+                        && linkAllowed());
       allow delete: if isAdmin();
     }
 
-    /* ── Progression (XP, maîtrise, séries, badges) ── */
-    match /progress/{userId} {
-      allow read:  if isAdmin() || isSelf(userId);
-      allow write: if isAdmin() || isSelf(userId);
-    }
-
-    /* ── Résultats d'exercices : créés par l'élève authentifié ── */
-    match /submissions/{subId} {
-      allow read:   if isAdmin() || (signed() && resource.data.studentId == uid());
-      allow create: if signed() && request.resource.data.studentId == uid();
-      allow update, delete: if isAdmin();
-    }
-    match /exerciseSubs/{subId} {
-      allow read:   if isAdmin() || (signed() && resource.data.studentId == uid());
-      allow create: if signed() && request.resource.data.studentId == uid();
-      allow update, delete: if isAdmin();
-    }
-
-    /* ── Présence aux séances : admin uniquement ── */
-    match /attendance/{doc} {
-      allow read:  if isAdmin() || (signed() && resource.data.studentId == uid());
+    /* ───────── Index e-mail → fiche élève (créé par la professeure) ─────────
+       Permet à l'élève de retrouver SA fiche sans pouvoir lister la collection. */
+    match /studentLinks/{emailKey} {
+      allow get:   if isAdmin() || (signed() && emailKey == email());
+      allow list:  if isAdmin();
       allow write: if isAdmin();
     }
 
-    /* ── Messagerie : les deux participants + l'admin ── */
+    /* ───────── Fiches élèves : privées (admin + l'élève concerné) ───────── */
+    match /students/{studentId} {
+      allow read:   if isAdmin() || isMine(studentId);
+      allow create, update, delete: if isAdmin();
+    }
+
+    /* ───────── Progression (XP, maîtrise, séries, badges) ─────────
+       Écriture par l'élève sur SA progression uniquement, valeurs bornées. */
+    match /progress/{userId} {
+      allow read:   if isAdmin() || isMine(userId);
+      allow create: if isAdmin() || (isMine(userId) && saneProgress());
+      allow update: if isAdmin() || (isMine(userId) && saneProgress());
+      allow delete: if isAdmin();
+    }
+    /* NB : FieldValue.increment() n'apparaît PAS comme « number » dans les
+       règles (c'est un jeton) → on ne borne que les valeurs numériques
+       réellement écrites, sinon les écritures XP légitimes seraient refusées. */
+    function bounded(v, max) {
+      return !(v is number) || (v >= 0 && v <= max);
+    }
+    function saneProgress() {
+      return bounded(request.resource.data.get('xp', 0), 2000000)
+          && bounded(request.resource.data.get('lessonsDone', 0), 50000)
+          && bounded(request.resource.data.get('exDone', 0), 50000)
+          && bounded(request.resource.data.get('correctTotal', 0), 500000)
+          && bounded(request.resource.data.get('answeredTotal', 0), 500000);
+    }
+
+    /* ───────── Résultats d'exercices : créés par l'élève authentifié ───────── */
+    match /submissions/{subId} {
+      allow read:   if isAdmin() || (signed() && 'studentId' in resource.data && isMine(resource.data.studentId));
+      allow create: if signed() && 'studentId' in request.resource.data && isMine(request.resource.data.studentId);
+      allow update, delete: if isAdmin();
+    }
+    match /exerciseSubs/{subId} {
+      allow read:   if isAdmin() || (signed() && 'studentId' in resource.data && isMine(resource.data.studentId));
+      allow create: if signed() && 'studentId' in request.resource.data && isMine(request.resource.data.studentId);
+      allow update, delete: if isAdmin();
+    }
+
+    /* ───────── Leçons terminées : une ligne par (élève, leçon) ───────── */
+    match /lessonsDone/{docId} {
+      allow read:   if isAdmin() || (signed() && 'studentId' in resource.data && isMine(resource.data.studentId));
+      allow create: if signed() && 'studentId' in request.resource.data && isMine(request.resource.data.studentId);
+      allow update, delete: if isAdmin();
+    }
+
+    /* ───────── Présence aux séances : admin uniquement ───────── */
+    match /attendance/{doc} {
+      allow read:  if isAdmin() || (signed() && 'studentId' in resource.data && isMine(resource.data.studentId));
+      allow write: if isAdmin();
+    }
+
+    /* ───────── Messagerie ─────────
+       · la page « Contact » (visiteur non connecté) peut créer UN message
+         strictement encadré : clés autorisées + longueurs maximales ;
+       · un membre connecté peut créer un message signé (uid) ;
+       · lecture : l'admin, l'auteur (uid) ou le destinataire (e-mail) ;
+       · réponse / suppression : admin. */
     match /messages/{msgId} {
-      allow read:   if isAdmin() || (signed() && (resource.data.from == uid() || resource.data.to == uid()));
-      allow create: if signed();
-      allow update: if isAdmin() || (signed() && resource.data.from == uid());
-      allow delete: if isAdmin();
+      allow create: if msgShape() && (
+          (request.resource.data.role == 'contact'
+            && request.resource.data.contact is string && request.resource.data.contact.size() <= 160)
+          || (signed() && request.resource.data.get('uid', '') == uid())
+          || isAdmin()
+        );
+      allow read:   if isAdmin()
+                    || (signed() && (resource.data.get('uid', '') == uid()
+                                     || resource.data.get('to', '') == email()));
+      allow update, delete: if isAdmin();
+    }
+    function msgShape() {
+      return request.resource.data.keys().hasOnly(['from','contact','level','subject','body','role','to','at','read','uid','importance','createdAt'])
+          && request.resource.data.body is string && request.resource.data.body.size() <= 3000
+          && request.resource.data.from is string && request.resource.data.from.size() <= 120;
     }
 
-    /* ── Comptes : chacun lit son propre compte, l'admin lit tout ── */
-    match /users/{userId} {
-      allow read:  if isAdmin() || isSelf(userId);
-      allow create: if signed() && isSelf(userId);
-      allow update: if isAdmin() || (isSelf(userId) &&
-                      request.resource.data.role == resource.data.role);
-      allow delete: if isAdmin();
-    }
-
-    /* ── Tout le reste : refusé par défaut ── */
+    /* ───────── Tout le reste : refusé par défaut ───────── */
     match /{document=**} { allow read, write: if false; }
   }
 }

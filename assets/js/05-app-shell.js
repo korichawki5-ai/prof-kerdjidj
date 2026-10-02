@@ -117,6 +117,8 @@ function bindDelegated(){
     const lang = e.target.closest('.lgsw button[data-lang]');
     if(lang){ window.PK.setLang(lang.dataset.lang); return; }
     if(e.target.closest('[data-theme-btn]')){ window.PK.toggleTheme(); return; }
+    const pend = e.target.closest('[data-pend-refresh]');
+    if(pend){ refreshPending(pend); return; }
     const tab = e.target.closest('[data-atab]');
     if(tab){
       const scope = tab.closest('.tabs');
@@ -126,6 +128,26 @@ function bindDelegated(){
       if(pn){ pn.classList.remove('lpn'); void pn.offsetWidth; pn.classList.add('lpn'); window.PK.replayFx(pn); window.PK.initReveal(pn); }
     }
   });
+}
+
+/* ───────── « MISE À JOUR DE L'ÉTAT » (compte en attente) ───────── */
+async function refreshPending(btn){
+  const t = window.PKi18n.t;
+  if(btn && btn.dataset.busy) return;
+  if(btn){ btn.dataset.busy='1'; btn.disabled = true; }
+  try{
+    const u = window.PKdb.currentUser();
+    if(!u){ location.reload(); return; }
+    await window.PKdb.syncProfile(u);
+    await window.PKdb.hydrateMe(u);
+    document.dispatchEvent(new CustomEvent('pk:me',{detail:window.PKdata.me}));
+    const still = window.PKdata.me && window.PKdata.me.role === 'pending';
+    window.PK.toast(still ? t('pendingRefresh')+' — '+t('refreshNo') : t('refreshOk'), still ? 'wn' : 'ok', 3200);
+  }catch(err){
+    window.PK.toast(window.PK.err(err), 'er', 4600);
+  }finally{
+    if(btn){ btn.disabled = false; delete btn.dataset.busy; }
+  }
 }
 
 /* ───────── MONTAGE ───────── */
@@ -150,33 +172,87 @@ const PKgate = {
       return `<section class="gate"><div class="gate__c">${svg('lock','width="36" height="36"')}
         <h2>${t('loginNeeded')}</h2>
         <button class="btn btn--p btn--lg" data-gate-login>${t('navLogin')} · Google</button>
-        <p class="gate__s">${t('notConnected')}</p></div></section>`;
+        <p class="gate__s" data-gate-msg>${t('notConnected')}</p></div></section>`;
     }
     if(!m.level && m.role !== 'admin'){
       return `<section class="gate"><div class="gate__c">${svg('school','width="36" height="36"')}
         <h2>${t('chooseLevelTitle')}</h2>
         <p class="gate__s">${t('chooseLevelSub')}</p>
         <div class="gate__lv">${D.levels.map(l=>`<button class="gate__b ${l.cls}" data-level="${l.id}"><b>${window.PKi18n.current()==='ar'?l.ar:l.fr}</b></button>`).join('')}</div>
+        <p class="gate__s"><a href="#" data-gate-out>${t('sbOut')}</a></p>
         </div></section>`;
     }
     return '';
   },
   bind(mn, after){
+    /* ── connexion Google : bouton verrouillé + message clair en cas d'échec ── */
     const lg = mn.querySelector('[data-gate-login]');
-    if(lg) lg.addEventListener('click', ()=>{ window.PKdb.loginGoogle().catch(()=>{}); });
+    if(lg) lg.addEventListener('click', async ()=>{
+      if(lg.dataset.busy) return;
+      lg.dataset.busy = '1';
+      const html0 = lg.innerHTML;
+      lg.disabled = true;
+      lg.innerHTML = window.PKi18n.t('loginBusy');
+      try{
+        await window.PKdb.loginGoogle();
+        /* succès : pk:me va reconstruire l'espace ; en cas de redirection
+           (mobile) la page se recharge d'elle-même. */
+      }catch(err){
+        lg.disabled = false; lg.innerHTML = html0; delete lg.dataset.busy;
+        window.PK.toast((err && (err.friendly||err.message)) || window.PKi18n.t('saveErr'), 'er', 5600);
+      }
+    });
+    /* ── erreur remontée par une connexion par redirection ── */
+    document.addEventListener('pk:auth-error', e=>{
+      const m = e && e.detail;
+      if(m) window.PK.toast(m.friendly || m.message || String(m), 'er', 5600);
+    });
+    /* ── choix du niveau : erreur affichée au lieu du silence ── */
     mn.querySelectorAll('[data-level]').forEach(b=> b.addEventListener('click', async ()=>{
+      b.disabled = true;
       const r = await window.PKdb.chooseLevel(b.dataset.level);
+      b.disabled = false;
       if(r && r.ok){ window.PK.toast(window.PKi18n.t('levelSaved'),'ok',2600); if(after) after(); }
+      else window.PK.toast((r && r.msg) || window.PKi18n.t('saveErr'), 'er', 5200);
     }));
+    const out = mn.querySelector('[data-gate-out]');
+    if(out) out.addEventListener('click', e=>{ e.preventDefault(); window.PKdb.logout().then(()=>location.reload()); });
   }
 };
+
+/* ───────── BANDEAU « COMPTE EN ATTENTE DE CONFIRMATION » ─────────
+   Affiché dans l'espace élève tant que la professeure n'a pas relié
+   l'élève à sa fiche : l'accès aux cours reste ouvert. */
+function pendingBanner(){
+  const m = window.PKdata.me;
+  if(!m || m.role !== 'pending' || m.level == null) return '';
+  const t = window.PKi18n.t, svg = window.PK.svg;
+  return `<div class="pend rv" data-pend>
+    <span class="ico ico--sm ico--wn">${svg('info')}</span>
+    <div style="flex:1;min-width:0">
+      <b>${t('pendingTitle')}</b>
+      <div class="muted" style="font-size:.85rem;line-height:1.7;margin-block-start:3px">${t('pendingSub')}</div>
+    </div>
+    <button class="btn btn--g btn--sm" data-pend-refresh>${svg('refresh','width="15" height="15"')}${t('pendingRefresh')}</button>
+  </div>`;
+}
 
 /* ───────── AMORÇAGE D'UNE PAGE D'APP ───────── */
 function bootApp(role, active, opts, render){
   document.addEventListener('DOMContentLoaded', ()=>{
     boot(null);                       // injecte sprite + palette + raccourcis
     const mn = mountApp(role, active, opts);
-    const doRender = (m)=>{ if(render) render(m||mn); replayFx(m||mn); initReveal(m||mn); };
+    const doRender = (m)=>{
+      const host = m || mn;
+      if(render) render(host);
+      /* bandeau « compte en attente de confirmation » (espace élève) */
+      if(role === 'student' && !host.querySelector('[data-pend]')){
+        const tmp = document.createElement('div');
+        tmp.innerHTML = pendingBanner();
+        if(tmp.firstChild) host.insertBefore(tmp.firstChild, host.firstChild);
+      }
+      replayFx(host); initReveal(host);
+    };
     document.addEventListener('pk:lang', ()=>{
       // reconstruit la coquille puis le contenu dans la nouvelle langue
       const host = $('#app');
@@ -197,5 +273,5 @@ function bootApp(role, active, opts, render){
   });
 }
 
-window.PKapp = {sidebar, appTop, mountApp, bootApp, bindDelegated, isOn, STUDENT_NAV, ADMIN_NAV, PKgate};
+window.PKapp = {sidebar, appTop, mountApp, bootApp, bindDelegated, isOn, STUDENT_NAV, ADMIN_NAV, PKgate, pendingBanner, refreshPending};
 })();

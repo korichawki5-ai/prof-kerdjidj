@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Espaces privés : ne pas indexer
+Disallow: /admin/
+Disallow: /student/
+Disallow: /404.html
+
+Sitemap: https://prof-kerdjidj.web.app/sitemap.xml

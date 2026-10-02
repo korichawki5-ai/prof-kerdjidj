@@ -24,8 +24,10 @@ const myExercises=()=>{const lv=myLv(); return lv==='ALL'?D.exercises:D.exercise
 const annTitle=a=>{const c=(a.i18n&&typeof a.i18n==='object')?a.i18n:null;
   return L_(c&&c.ar,c&&c.fr)||L_(a.titleAr,a.titleFr)||L_('إعلان','Annonce');};
 const annBody=a=>{const c=(a.i18n&&typeof a.i18n==='object')?a.i18n:null;
-  return L_(c&&c.bodyAr,c&&c.bodyFr)||L_(a.bodyAr,a.bodyFr)||(typeof a.i18n==='string'?t(a.i18n):'')||L_(c&&c.ar,c&&c.fr)||'';};
+  return L_(c&&c.bodyAr,c&&c.bodyFr)||L_(c&&c.arBody,c&&c.frBody)||L_(a.bodyAr,a.bodyFr)||L_(a.arBody,a.frBody)||(typeof a.i18n==='string'?t(a.i18n):'')||'';};
 const emptyCard=(k,i)=>`<div class="empty"><div class="ico">${svg(i||'book')}</div><b>${t(k)}</b></div>`;
+const lvCls=id=>{ const l=D.byId(D.levels,id); return l?l.cls:'lv-1am'; };
+const escH=v=> (window.PK && window.PK.esc) ? window.PK.esc(v) : String(v==null?'':v);
 
 /* ───────── En-tête de page (barre de titre de l'app) ───────── */
 function head(o){
@@ -54,7 +56,7 @@ function lessons(){
     sub:L_(`${myLessons().length} درساً · أكملت ${done} · كل درس مكتمل = +${X.CFG.xpPerLesson} XP`,
            `${myLessons().length} cours · ${done} terminés · chaque cours terminé = +${X.CFG.xpPerLesson} XP`),
     actions:`<a href="exercises.html" class="btn btn--p btn--sm">${svg('quiz','width="16" height="16"')}${t('sbEx')}</a>`}) + `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${[[t('k4'),done,'book','ico--pu'],[t('lsAll'),myLessons().length,'layers',''],
        [t('xpTotal'),sum.xp.toLocaleString('fr-FR'),'bolt','ico--wn'],[t('mastery'),sum.globalMastery+'%','target','ico--ok']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
@@ -138,7 +140,7 @@ function lessonPage(){
     sub:`${l.level} · ${axName(l.ax)} · ${l.min} ${t('lsMin')} · +${l.xp||X.CFG.xpPerLesson} XP`,
     actions:`${prev?`<a class="btn btn--g btn--i" href="lesson.html?id=${prev.id}" title="${L_('السابق','Précédent')}">${svg('arrow')}</a>`:''}
       ${next?`<a class="btn btn--g btn--i" href="lesson.html?id=${next.id}" title="${L_('التالي','Suivant')}">${svg('chev')}</a>`:''}`}) + `
-  <div class="g g-main" style="grid-template-columns:1fr 320px;align-items:start">
+  <div class="g g-main adm-split" style="--adm-side:320px">
     <div style="min-width:0;display:flex;flex-direction:column;gap:20px">
       <div class="cd rv">
         <div class="flex gap2 wrap-f mb4">
@@ -229,7 +231,7 @@ function exercises(){
     sub:L_(`${myExercises().length} تمريناً · أنجزت ${sum.exDone} · دقّتك ${sum.accuracy}%`,
            `${myExercises().length} exercices · ${sum.exDone} résolus · précision ${sum.accuracy}%`),
     actions:`<a href="lessons.html" class="btn btn--g btn--sm">${svg('book','width="16" height="16"')}${t('sbLessons')}</a>`}) + `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${[[t('k5'),sum.exDone,'quiz','ico--cy'],[t('accuracy'),sum.accuracy+'%','checkc','ico--ok'],
        [t('bestStreak'),sum.bestStreak,'flame','ico--wn'],[t('xpTotal'),sum.xp.toLocaleString('fr-FR'),'bolt','']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
@@ -259,9 +261,9 @@ function renderExGrid(host){
     const best=X.bestOf?X.bestOf(m,x.id):null;
     return `<div class="cd cd--h rv">
       <div class="flex gap2 wrap-f mb4">
-        <span class="bd bd--lv ${D.byId(D.levels,x.level).cls}">${x.level}</span>
+        <span class="bd bd--lv ${lvCls(x.level)}">${x.level}</span>
         <span class="bd bd--gy">${axName(x.ax)}</span>
-        <span class="qtype qtype--${x.type==='mixed'?'mcq':x.type}">${t('ty'+x.type.charAt(0).toUpperCase()+x.type.slice(1))}</span>
+        <span class="qtype qtype--${(x.type==='mixed'?'mcq':(x.type||'quiz'))}">${t('ty'+(x.type||'quiz').charAt(0).toUpperCase()+(x.type||'quiz').slice(1))}</span>
         <span class="diff diff--${x.diff}" style="margin-inline-start:auto"><i class="on"></i><i class="${x.diff>=2?'on':''}"></i><i class="${x.diff>=3?'on':''}"></i></span>
       </div>
       <h3 style="font-size:1.02rem;font-family:var(--ffl)">${L_(x.titleAr,x.titleFr)}</h3>
@@ -302,7 +304,7 @@ function progressPage(){
     sub:L_('XP · رتبة · سلسلة · إتقان لكل محور · أوسمة — بدون أي نقطة مدرسية',
            'XP · rang · série · maîtrise par axe · badges — aucune note scolaire'),
     actions:`<a href="exercises.html" class="btn btn--p btn--sm">${svg('play','width="16" height="16"')}${t('exStart')}</a>`}) + `
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main adm-split" style="--adm-side:340px">
     <div style="min-width:0;display:flex;flex-direction:column;gap:20px">
       <div class="cd rv" style="background:linear-gradient(140deg,var(--ac-dd),var(--ac) 60%,var(--ac-2));border:0;color:#fff">
         <div class="flex items-c gap4 wrap-f">
@@ -319,7 +321,7 @@ function progressPage(){
         </div>
       </div>
 
-      <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpis cas">
         ${[[t('xpTotal'),sum.xp.toLocaleString('fr-FR'),'bolt','ico--wn'],[t('streak'),sum.streak,'flame','ico--er'],
            [t('accuracy'),sum.accuracy+'%','checkc','ico--ok'],[t('mastery'),sum.globalMastery+'%','target','ico--pu']]
           .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
@@ -381,7 +383,7 @@ function progressPage(){
       <div class="cd rv" style="--d:60ms">
         <div class="cd__h"><div class="cd__t" style="font-size:.98rem">${t('stBadges')}</div>
           <span class="bd la">${sum.badges.length}/${X.BADGES.length}</span></div>
-        <div class="bdgrid" style="grid-template-columns:repeat(3,1fr);gap:10px">
+        <div class="bdgrid bdgrid--3" style="gap:10px">
           ${X.BADGES.map(b=>{const has=sum.badges.includes(b.id);
             return `<div class="bdgc ${has?'':'off'}" title="${t(b.i18n)}">
               <span class="bdgc__i">${svg(b.icon)}</span><b>${t(b.i18n)}</b></div>`;}).join('')}
@@ -492,7 +494,7 @@ function announcements(){
   return head({crumb:crumb('index.html',t('sbDash'))+'<span>'+t('sbAnn')+'</span>',
     title:t('sbAnn'),
     sub:L_('كل ما تنشره الأستاذة يصلك هنا فوراً','Tout ce que publie la professeure arrive ici immédiatement')}) + `
-  <div class="g g-main" style="grid-template-columns:1fr 320px;align-items:start">
+  <div class="g g-main adm-split" style="--adm-side:320px">
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
       ${list.map(a=>{
         const imp=a.importance||'info';
@@ -544,15 +546,15 @@ function profile(){
   return head({crumb:crumb('index.html',t('sbDash'))+'<span>'+t('sbProfile')+'</span>',
     title:t('sbProfile'),
     sub:L_('معلوماتك، رتبتك، وتفضيلاتك','Vos informations, votre rang et vos préférences')}) + `
-  <div class="g g-main" style="grid-template-columns:340px 1fr;align-items:start">
+  <div class="g g-main adm-split adm-split--rev" style="--adm-side:340px">
     <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
       <div class="cd rv" style="text-align:center">
         <span class="av av--lg" style="background:${m.color};width:92px;height:92px;border-radius:28px;font-size:1.7rem;margin-inline:auto">${ini(m.fr)}</span>
-        <div class="cd__t mt4" style="font-size:1.1rem">${L_(m.ar,m.fr)}</div>
-        <div class="cd__s la">${m.fr}</div>
+        <div class="cd__t mt4" style="font-size:1.1rem">${escH(L_(m.ar,m.fr)||'')}</div>
+        <div class="cd__s la" dir="ltr">${escH(m.fr||'')}</div>
         <div class="flex gap2 mt4" style="justify-content:center;flex-wrap:wrap">
-          <span class="bd bd--lv ${D.byId(D.levels,m.level).cls}">${m.level}</span>
-          <span class="bd">${svg('school','width="12" height="12"')}${g.name||m.group}</span>
+          <span class="bd bd--lv ${lvCls(m.level)}">${escH(m.level||'')}</span>
+          <span class="bd">${svg('school','width="12" height="12"')}${escH(g.name||m.group||'')}</span>
           <span class="bd ${m.linked?'bd--ok':'bd--wn'}">${m.linked?t('stuLinked'):t('stuNotLinked')}</span>
         </div>
         <div class="cd cd--flat mt5" style="background:var(--bg2);padding:14px">
@@ -562,7 +564,7 @@ function profile(){
           <div class="prg mt4"><i data-w="${sum.rankProgress.pct}%" style="width:${sum.rankProgress.pct}%"></i></div>
         </div>
       </div>
-      <div class="kpis cas" style="grid-template-columns:repeat(2,1fr);gap:12px">
+      <div class="kpis cas kpis--2" style="gap:12px">
         ${[[t('streak'),sum.streak,'flame'],[t('k4'),sum.lessonsDone,'book'],
            [t('k5'),sum.exDone,'quiz'],[t('badges'),sum.badges.length,'trophy']]
           .map(([l,v,ic])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm">${svg(ic)}</span></div>
@@ -572,13 +574,13 @@ function profile(){
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
       <div class="cd rv">
         <div class="cd__h"><div><div class="cd__t">${L_('معلوماتي','Mes informations')}</div>
-          <div class="cd__s">${L_('يُعدَّل الاسم والفوج من طرف الأستاذة فقط','Le nom et le groupe sont modifiés par la professeure uniquement')}</div></div></div>
+          <div class="cd__s">${L_('الاسم الظاهر يمكنك تعديله — الفوج والمؤسسة تُعدَّلان من طرف الأستاذة','Votre nom affiché est modifiable — le groupe et l’établissement sont gérés par la professeure')}</div></div></div>
         <div class="g g2" style="gap:16px">
-          <div class="fld"><label>${L_('الاسم بالعربية','Nom (AR)')}</label><input class="inp" value="${m.ar}"></div>
-          <div class="fld"><label>${L_('Nom (FR)','الاسم بالفرنسية')}</label><input class="inp" dir="ltr" value="${m.fr}"></div>
-          <div class="fld"><label data-i18n="stuLevel">${t('stuLevel')}</label><input class="inp la" value="${m.level}" disabled></div>
-          <div class="fld"><label data-i18n="stuGroup">${t('stuGroup')}</label><input class="inp" value="${g.name||m.group}" disabled></div>
-          <div class="fld"><label data-i18n="stuSchool">${t('stuSchool')}</label><input class="inp" value="${L_(g.schoolAr||m.school,g.schoolFr||m.school)}" disabled></div>
+          <div class="fld"><label>${L_('الاسم بالعربية','Nom (AR)')}</label><input class="inp" id="pfAr" value="${escH(m.ar)}"></div>
+          <div class="fld"><label>${L_('Nom (FR)','الاسم بالفرنسية')}</label><input class="inp" id="pfFr" dir="ltr" value="${escH(m.fr)}"></div>
+          <div class="fld"><label data-i18n="stuLevel">${t('stuLevel')}</label><input class="inp la" value="${escH(m.level)}" disabled></div>
+          <div class="fld"><label data-i18n="stuGroup">${t('stuGroup')}</label><input class="inp" value="${escH(g.name||m.group||'')}" disabled></div>
+          <div class="fld"><label data-i18n="stuSchool">${t('stuSchool')}</label><input class="inp" value="${escH(L_(g.schoolAr||m.school,g.schoolFr||m.school)||'')}" disabled></div>
           <div class="fld"><label data-i18n="stuParent">${t('stuParent')}</label><input class="inp" dir="ltr" value="${m.parent}" disabled></div>
         </div>
         <div class="flex gap3 mt5 wrap-f">
@@ -593,7 +595,7 @@ function profile(){
           <span class="bd ${m.linked?'bd--ok':'bd--wn'}">${m.linked?t('stuLinked'):t('stuNotLinked')}</span></div>
         <div class="flex gap3 wrap-f items-c">
           <button class="btn btn--g" data-google>${svg('abc','width="17" height="17"')}${t('navLogin')} · Google</button>
-          <span class="muted" style="font-size:.84rem">${L_('البريد المرتبط','Compte associé')} : <b class="la" dir="ltr">${m.linked?'sara.rahmani@gmail.com':'—'}</b></span>
+          <span class="muted" style="font-size:.84rem">${L_('البريد المرتبط','Compte associé')} : <b class="la" dir="ltr">${escH(m.email||'—')}</b></span>
         </div>
       </div>
       <div class="cd rv" style="--d:120ms">
@@ -621,12 +623,22 @@ function profile(){
   </div>`;
 }
 function bindProfile(host){
-  const sv=$('[data-save-profile]',host); if(sv) sv.addEventListener('click',()=>{
-    window.PKdb.syncProfile({ar:me().ar, fr:me().fr});
-    toast(L_('حُفظ ملفك ✓','Profil enregistré ✓'),'ok',2600);});
+  /* Avant : syncProfile({ar,fr}) recevait un objet simple alors que la
+     fonction attend un utilisateur Firebase → l'uid était « undefined » et
+     l'enregistrement échouait silencieusement. On utilise saveMyProfile(). */
+  const sv=$('[data-save-profile]',host); if(sv) sv.addEventListener('click', async ()=>{
+    const a=$('#pfAr',host), b=$('#pfFr',host);
+    const val=((b&&b.value.trim()) || (a&&a.value.trim()) || me().fr || me().ar || '');
+    if(!val){ toast(L_('اكتب اسمك أولاً','Saisissez votre nom'),'wn',2600); return; }
+    sv.disabled = true;
+    const r = await window.PKdb.saveMyProfile({name:val});
+    sv.disabled = false;
+    if(r && r.ok) toast(L_('حُفظ ملفك ✓','Profil enregistré ✓'),'ok',2600);
+    else toast((r && r.msg) || L_('تعذّر الحفظ','Enregistrement impossible'),'er',4200);
+  });
   const gg=$('[data-google]',host); if(gg) gg.addEventListener('click',()=>{
     window.PKdb.loginGoogle().then(()=>toast(L_('تم الدخول بحساب Google ✓','Connexion Google réussie ✓'),'ok',2600))
-      .catch(()=>toast(L_('الدخول بـ Google يتطلّب ربط Firebase','La connexion Google nécessite Firebase'),'wn',3000));});
+      .catch(err=>toast((err&&(err.friendly||err.message))||L_('تعذّر الدخول','Connexion impossible'),'er',5200));});
   const lo=$('[data-logout]',host); if(lo) lo.addEventListener('click',()=>{
     window.PKdb.logout(); toast(L_('إلى اللقاء 👋','À bientôt 👋'),'info',2200); setTimeout(()=>location.href='../index.html',900);});
   $$('[data-pref] button',host).forEach(b=> b.addEventListener('click',()=>{

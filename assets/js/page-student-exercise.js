@@ -29,6 +29,9 @@ function renderBrief(mn){
   if(!D.exercises.length){ mn.innerHTML = `<div class="empty"><div class="ico">${svg('quiz')}</div><b>${t('noExercises')}</b></div>`; syncTop(mn); return; }
   EX = getExercise();
   const lv = D.byId(D.levels, EX.level), ax = D.axes.find(a=>a.id===EX.ax)||{fr:EX.ax,ar:EX.ax};
+  EX.questions = Array.isArray(EX.questions) ? EX.questions : [];
+  EX.diff = EX.diff || 1; EX.min = EX.min || 10; EX.xpMax = EX.xpMax || 0; EX.tries = EX.tries || 3;
+  EX.type = EX.type || 'quiz';
   mn.innerHTML = `
   <div class="mn__t">
     <div>
@@ -43,7 +46,7 @@ function renderBrief(mn){
     </div>
   </div>
 
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main adm-split" style="--adm-side:340px">
     <div class="qz rv">
       <div class="qz__hd">
         <div class="qz__meta">
@@ -167,7 +170,7 @@ function renderQuestion(mn){
           </div>
         </div>
         ${opts
-          ? `<div class="qn__x" ${opts.length<=2?'style="grid-template-columns:repeat(2,1fr)"':''}>
+          ? `<div class="qn__x">
                ${opts.map(([i,label])=>`<button class="qo" data-i="${i}"><i>${'ABCD'[i]}</i><span dir="ltr">${label}</span></button>`).join('')}
              </div>`
           : `<div class="fld"><label>${L_('اكتب الإجابة','Écrivez la réponse')}</label>
