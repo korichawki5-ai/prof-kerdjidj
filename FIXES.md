@@ -93,3 +93,7 @@ node run-all.mjs                 # 168 ✅ / 0 ❌
 node run-fixes.mjs               #  56 ✅ / 0 ❌ (اختبارات الإصلاحات)
 ```
 > يمكن أيضاً فتح `.preview-admin.html` و`.preview-student.html` (معاينة بلا قاعدة بيانات، ببيانات توضيحية صريحة) لرؤية الشكل على الهاتف.
+
+**فحص ملف التسليم (ZIP):** فُكّ الضغط في مجلد نظيف، ثم فُتحت **16 صفحة** من الملفات المفكوكة على سيرفر محلي:
+`index · levels · lessons · exercises · timetable · about · faq · contact · student/ · admin/#students · admin/#groups · admin/#lessons · admin/#announce · 404 · preview-admin · preview-student`
+→ **16 ✅ / 0 ❌**: لا خطأ JS واحد، ولا كلمة `undefined`. كما تم التأكد من أن الملفات داخل الـ ZIP مطابقة بالبايت لملفات المشروع (md5).
