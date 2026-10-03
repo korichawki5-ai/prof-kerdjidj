@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<!-- ══════════════════════════════════════════════════════════════════
+     APERÇU HORS-LIGNE DE L'ESPACE ÉLÈVE  (fichier de travail)
+     Vérifie la mise en page mobile, le tableau de bord et le bandeau
+     « compte en attente de confirmation », sans aucune donnée réelle.
+     Fichier commençant par un point → non publié par firebase deploy.
+     ══════════════════════════════════════════════════════════════════ -->
+<html lang="ar" dir="rtl" data-theme="light" data-page="student-home">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>معاينة فضاء التلميذ (تجريبية)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%231E4FD8'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/00-tokens.css?v=5">
+<link rel="stylesheet" href="assets/css/01-base.css?v=5">
+<link rel="stylesheet" href="assets/css/02-components.css?v=5">
+<link rel="stylesheet" href="assets/css/03-layout.css?v=5">
+<link rel="stylesheet" href="assets/css/04-sections.css?v=5">
+<link rel="stylesheet" href="assets/css/05-app.css?v=5">
+<link rel="stylesheet" href="assets/css/06-animations.css?v=5">
+<link rel="stylesheet" href="assets/css/07-responsive.css?v=5">
+<script>
+window.__PK_TEST__ = true;
+window.__PK_SEED__ = {
+  groups: [
+    {id:'g1', name:'G1 · 4AM', level:'4AM', day:'sat', start:'14:00', end:'15:30', room:'قاعة 1',
+     teacher:'Prof. Kerdjidj', schoolAr:'متوسطة خميس مليانة', schoolFr:'CEM Khemis Miliana',
+     capacity:18, enrolled:12, cls:'lv-4am', mode:'onsite'}
+  ],
+  lessons: [
+    {id:'l1', level:'4AM', ax:'grammaire', ar:'الجملة الموصولة', fr:'La proposition relative',
+     sumAr:'وظائف qui · que · dont · où', sumFr:'Fonctions de qui, que, dont, où',
+     content:'<h3>Les pronoms relatifs</h3><p><b>qui</b> : sujet · <b>que</b> : COD · <b>dont</b> : complément de nom · <b>où</b> : lieu / temps</p>',
+     min:20, xp:25, files:1, video:false, published:true},
+    {id:'l2', level:'4AM', ax:'conjugaison', ar:'الأزمنة المركّبة', fr:'Les temps composés',
+     sumAr:'الماضي المركب والمضارع التام', sumFr:'Le passé composé', content:'<p>avoir / être + participe passé</p>',
+     min:22, xp:25, files:0, video:true, published:true}
+  ],
+  exercises: [
+    {id:'e1', level:'4AM', ax:'grammaire', type:'quiz', diff:2, min:10, q:3, xpMax:190, tries:3,
+     titleAr:'تمرين — الضمائر الموصولة', titleFr:'Exercice — Les pronoms relatifs',
+     descAr:'ثلاثة أسئلة سريعة', descFr:'Trois questions rapides', published:true, lessonId:'l1',
+     questions:[{t:'Le garçon …… parle est mon cousin.', o:['qui','que','dont','où'], a:0, d:1},
+                {t:'La leçon …… j’ai comprise est facile.', o:['qui','que','dont','où'], a:1, d:1},
+                {t:'La classe …… nous étudions est claire.', o:['qui','que','dont','où'], a:3, d:1}]}
+  ],
+  announcements: [
+    {id:'a1', ar:'حصّة تعويضية', fr:'Séance de rattrapage', arBody:'حصّة تعويضية يوم السبت على 14:00.',
+     frBody:'Séance de rattrapage samedi à 14h00.', bodyAr:'حصّة تعويضية يوم السبت على 14:00.',
+     bodyFr:'Séance de rattrapage samedi à 14h00.', importance:'important', pinned:true,
+     date:'2026-09-30'}
+  ]
+};
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div style="position:fixed;inset-block-end:12px;inset-inline-start:12px;z-index:999;background:#1E4FD8;color:#fff;padding:8px 14px;border-radius:12px;font:700 12px/1.6 system-ui;display:flex;gap:10px;flex-wrap:wrap">
+  <span>معاينة تجريبية</span>
+  <a href="?form=1" style="color:#CDE0FF">استمارة التسجيل</a>
+  <a href="?" style="color:#CDE0FF">فضاء تلميذ مسجَّل</a>
+  <a href=".preview-admin.html" style="color:#CDE0FF">لوحة الإدارة</a>
+</div>
+<script src="assets/js/00-i18n.js?v=5"></script>
+<script src="assets/js/01-progression.js?v=5"></script>
+<script src="assets/js/02-ui.js?v=5"></script>
+<script src="assets/js/03-data.js?v=5"></script>
+<script src="assets/js/04-firebase.js?v=5"></script>
+<script src="assets/js/05-app-shell.js?v=5"></script>
+<script src="assets/js/06-student-local.js?v=5"></script>
+<script src="assets/js/page-student-home.js?v=5"></script>
+<script>
+/* معاينة: إما استمارة التسجيل (?form=1) أو فضاء تلميذ مسجَّل على هذا الجهاز.
+   البيانات هنا توضيحية للعرض فقط — وهي في الواقع تُكتب من استمارة التلميذ. */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const wantForm = new URLSearchParams(location.search).get('form') === '1';
+  if(wantForm){ window.PKlocal.clear(); }
+  else if(!window.PKlocal.active()){
+    window.PKlocal.register({
+      name:'أمين بلقاسم', level:'4AM', birth:'2010-03-12',
+      parentPhone:'0555 00 00 00', email:'amine@example.com',
+      school:'متوسطة الأمير عبد القادر', note:'أرغب في حصص يوم السبت'
+    }, {sent:true});
+    window.PKlocal.logLesson('l1', 25);
+    window.PKlocal.logSubmission({exerciseId:'e1', level:'4AM', axis:'grammaire', type:'grammaire',
+      correct:3, total:3, pct:100, xp:118, durationSec:120, timeLimit:600, isQuiz:true});
+    window.PKlocal.logSubmission({exerciseId:'e1', level:'4AM', axis:'conjugaison', type:'conjugaison',
+      correct:2, total:3, pct:67, xp:54, durationSec:260, timeLimit:600, isQuiz:true});
+  }
+});
+</script>
+</body>
+</html>

@@ -7,9 +7,16 @@
    ══════════════════════════════════════════════════════════════════ */
 (function(){
 "use strict";
-const {$, $$, svg, t, toast, modal, replayFx, initReveal, confetti} = window.PK;
+const {$, $$, esc, svg, t, toast, modal, replayFx, initReveal, confetti} = window.PK;
 const D = window.PKdata, X = window.PKxp;
 let L='ar'; const ar=()=>L==='ar'; const L_=(a,f)=>ar()?a:f;
+
+/* Sans donnée saisie, une moyenne n'existe pas : on affiche « — » et JAMAIS
+   « NaN » (constaté sur la plateforme encore vide : « الدقّة NaN% »). */
+const pctOrDash = (part, whole) => whole ? Math.round((part/whole)*100)+'%' : '—';
+const avgOrDash = (total, n) => n ? Math.round(total/n).toLocaleString('fr-FR') : '—';
+/* Champ non renseigné par la professeure → « — », jamais « undefined ». */
+const orDash = v => (v === null || v === undefined || v === '') ? '—' : v;
 
 const DAYS={sat:['السبت','Samedi','Sam'],sun:['الأحد','Dimanche','Dim'],mon:['الاثنين','Lundi','Lun'],
             tue:['الثلاثاء','Mardi','Mar'],wed:['الأربعاء','Mercredi','Mer'],thu:['الخميس','Jeudi','Jeu']};
@@ -21,7 +28,10 @@ const ini=n=>n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 
 /* ══════════════════ VUE D'ENSEMBLE ══════════════════ */
 function overview(){
-  const st=D.students, act=st.filter(s=>s.status==='active');
+  /* stn() complète les champs manquants : une fiche créée à la main (ou depuis
+     une demande d'inscription) n'a pas forcément xp / mastery → sans cela,
+     « undefined » et plantages dans le tableau et les graphiques. */
+  const st=D.students.map(stn), act=st.filter(s=>s.status==='active');
   const n=st.length||1;
   const avgXp=Math.round(st.reduce((a,s)=>a+(s.xp||0),0)/n);
   const avgM=Math.round(st.reduce((a,s)=>a+X.globalMastery(s.mastery||{}),0)/n);
@@ -47,13 +57,13 @@ function overview(){
   if(!feed.length) feed.push(['info','ico--gy', L_('لا نشاط بعد — كل رسالة جديدة وكل نشر سيظهران هنا.','Aucune activité — chaque message et publication apparaîtront ici.'), '']);
 
   return `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${kpis.map(k=>`<div class="kpi rv">
       <div class="kpi__t"><span class="ico ico--sm ${k.c}">${svg(k.ic)}</span></div>
       <div class="kpi__n la">${k.n}</div><div class="kpi__l">${k.l}</div></div>`).join('')}
   </div>
 
-  <div class="g g-main mt5" style="grid-template-columns:1fr 360px;align-items:start">
+  <div class="g g-main mt5 adm-split" style="--adm-side:360px">
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
       <div class="chart rv">
         <div class="chart__h">
@@ -134,7 +144,7 @@ function overview(){
       <div class="cd rv" style="--d:140ms">
         <div class="cd__t mb4" style="font-size:.98rem">${L_('مؤشرات التدريب','Indicateurs d’entraînement')}</div>
         ${[[t('streak'),avgStreak,'flame','var(--wn)'],[t('mastery'),avgM+'%','target','var(--ok)'],
-           [t('accuracy'),Math.round(st.reduce((a,s)=>a+s.correct/Math.max(s.answered||1,1)*100,0)/st.length)+'%','checkc','var(--ac)'],
+           [t('accuracy'),pctOrDash(st.reduce((a,s)=>a+(s.correct||0),0), st.reduce((a,s)=>a+(s.answered||0),0)),'checkc','var(--ac)'],
            [t('exDone')||'تمارين محلولة',st.reduce((a,s)=>a+s.exDone,0),'quiz','var(--pu)']]
           .map(([l,v,ic,c])=>`<div class="flex just-b items-c" style="padding:11px 0;border-block-end:1px dashed var(--line)">
             <span class="flex items-c gap3" style="font-size:.88rem">${svg(ic,'width="16" height="16" style="color:'+c+'"')}${l}</span>
@@ -152,11 +162,14 @@ function timetable(){
   D.slots.forEach(slot=>{
     grid+=`<div class="hr la">${slot}</div>`;
     D.days.forEach(d=>{
-      const g=D.slotAt(d,slot);
+      const g0=D.slotAt(d,slot);
+      /* séance saisie à moitié (sans salle / professeure / école) : « — » et non
+         « undefined » dans la grille des horaires */
+      const g = g0 ? Object.assign({name:'—', schoolAr:'', schoolFr:'', teacher:'', start:'—', end:'—'}, g0) : null;
       grid += g
-        ? `<div class="sl" data-day="${d}" data-slot="${slot}"><div class="blk ${g.cls}" draggable="true">
+        ? `<div class="sl" data-day="${d}" data-slot="${slot}"><div class="blk ${esc(g.cls||'')}" draggable="true">
              <span class="blk__g">${svg('drag','width="13" height="13"')}</span>
-             <b>${g.name}</b><small>${L_(g.schoolAr,g.schoolFr)}</small><i>${g.teacher} · ${g.start}–${g.end}</i>
+             <b>${esc(g.name)}</b><small>${esc(L_(g.schoolAr,g.schoolFr)||'—')}</small><i>${esc(g.teacher||'—')} · ${esc(g.start)}–${esc(g.end)}</i>
            </div></div>`
         : `<div class="sl" data-day="${d}" data-slot="${slot}"></div>`;
     });
@@ -181,35 +194,36 @@ function timetable(){
       return `<div class="cd rv">
         <div class="flex items-c gap3 mb4"><span class="lv__b ${l.cls}" style="width:44px;height:44px;border-radius:14px;font-size:.85rem">${l.id}</span>
           <div><b>${L_(l.ar,l.fr)}</b><div class="muted la" style="font-size:.8rem">${gs.length} ${t('adGroups')}</div></div></div>
-        ${gs.map(g=>`<div class="mini-row"><span class="dot-st dot-st--on"></span><b class="la">${g.name}</b>
-          <span class="muted" style="margin-inline-start:auto;font-size:.8rem">${DAYS[g.day][ar()?0:1]} ${g.start}</span></div>`).join('')}
+        ${gs.map(g=>`<div class="mini-row"><span class="dot-st dot-st--on"></span><b class="la">${esc(g.name||'—')}</b>
+          <span class="muted" style="margin-inline-start:auto;font-size:.8rem">${(DAYS[g.day]||['—'])[ar()?0:1]} ${esc(g.start||'—')}</span></div>`).join('')}
       </div>`;}).join('')}
   </div>`;
 }
 
 /* ══════════════════ ÉLÈVES ══════════════════ */
 function students(){
-  const rows=D.students.map(s=>{
+  const pend=regCard()+pendingCard();
+  const rows=D.students.map(s=>stn(s)).map(s=>{
     const g=D.groupOf(s.group)||{}; const r=X.rankOf(s.xp); const gm=X.globalMastery(s.mastery);
     return `<tr>
-      <td><div class="who"><span class="av" style="background:${s.color}">${ini(s.fr)}</span>
-        <div><b>${L_(s.ar,s.fr)}</b><small class="la">${s.fr}</small></div></div></td>
-      <td><span class="bd bd--lv ${D.byId(D.levels,s.level).cls}">${s.level}</span></td>
-      <td class="la">${g.name||s.group}</td>
-      <td style="font-size:.83rem">${(g.schoolAr||g.schoolFr)?L_(g.schoolAr,g.schoolFr):'—'}</td>
-      <td class="la" dir="ltr" style="font-size:.83rem">${s.parent||'—'}</td>
+      <td><div class="who"><span class="av" style="background:${s.color}">${esc(ini(s.fr||s.ar||'--'))}</span>
+        <div><b>${esc(L_(s.ar,s.fr)||'—')}</b><small class="la" dir="ltr">${esc(s.fr||'')}</small></div></div></td>
+      <td><span class="bd bd--lv ${lvCls(s.level)}">${esc(s.level)}</span></td>
+      <td class="la">${esc(g.name||s.group||'—')}</td>
+      <td style="font-size:.83rem">${(g.schoolAr||g.schoolFr)?esc(L_(g.schoolAr,g.schoolFr)):'—'}</td>
+      <td class="la" dir="ltr" style="font-size:.83rem">${esc(s.parent||'—')}</td>
       <td><b class="la acc">${s.xp.toLocaleString('fr-FR')}</b></td>
       <td><span class="la">${svg('flame','width="13" height="13" fill="var(--wn)" stroke="none" style="display:inline;vertical-align:-2px"')} ${s.streak}</span></td>
       <td><div class="flex items-c gap2"><div class="prg prg--sm" style="width:56px"><i data-w="${gm}%" style="width:${gm}%"></i></div><span class="la faint" style="font-size:.78rem">${gm}%</span></div></td>
       <td>${s.linked?`<span class="bd bd--ok">${svg('check','width="12" height="12"')}${t('stuLinked')}</span>`
                      :`<span class="bd bd--wn">${t('stuNotLinked')}</span>`}</td>
       <td><span class="bd ${s.status==='active'?'bd--ok':'bd--gy'}">${s.status==='active'?t('stuActive'):t('stuInactive')}</span></td>
-      <td><div class="acts"><button class="iact" data-view-student="${s.id}" title="${t('stuCard')}">${svg('eye')}</button>
-        <button class="iact" title="${t('edit')}">${svg('edit')}</button>
-        <button class="iact iact--er" title="${t('del')}">${svg('trash')}</button></div></td>
+      <td><div class="acts"><button class="iact" data-view-student="${esc(s.id)}" title="${t('stuCard')}">${svg('eye')}</button>
+        <button class="iact" data-edit-student="${esc(s.id)}" title="${t('edit')}">${svg('edit')}</button>
+        <button class="iact iact--er" data-del-student="${esc(s.id)}" title="${t('del')}">${svg('trash')}</button></div></td>
     </tr>`;}).join('');
 
-  return `
+  return `${pend}
   <div class="cd cd--f rv">
     <div class="cd__h" style="padding:20px 24px;margin:0;border-block-end:1px solid var(--line)">
       <div><div class="cd__t" data-i18n="stuList">${t('stuList')}</div>
@@ -255,11 +269,12 @@ function students(){
       <div class="cd__s mb4" data-i18n="stuLinkS">${t('stuLinkS')}</div>
       <div class="g g2" style="gap:14px">
         <div class="fld"><label>${L_('اسم التلميذ','Nom de l’élève')}</label>
-          <select class="sel sel--sm">${D.students.filter(s=>!s.linked).map(s=>`<option>${L_(s.ar,s.fr)} — ${s.level}</option>`).join('')||`<option>${t('empty')}</option>`}</select></div>
+          <select class="sel sel--sm" id="lkStudent">${D.students.map(s=>stn(s)).map(s=>`<option value="${esc(s.id)}">${esc(L_(s.ar,s.fr)||s.id)} — ${esc(s.level)}${s.googleEmail?' ('+esc(s.googleEmail)+')':''}</option>`).join('')||`<option value="">${t('empty')}</option>`}</select></div>
         <div class="fld"><label data-i18n="stuLinkE">${t('stuLinkE')}</label>
-          <input class="inp inp--sm" dir="ltr" placeholder="eleve@gmail.com"></div>
+          <input class="inp inp--sm" id="lkEmail" dir="ltr" placeholder="eleve@gmail.com"></div>
       </div>
       <button class="btn btn--p btn--blk mt4" data-link>${svg('link','width="17" height="17"')}${t('stuLinkGo')}</button>
+      <button class="btn btn--g btn--sm btn--blk mt3" data-backfill>${svg('refresh','width="15" height="15"')}${t('admBackfill')}</button>
     </div>
   </div>`;
 }
@@ -273,21 +288,30 @@ function groups(){
     <button class="btn btn--p" data-add-group>${svg('plus','width="17" height="17"')}${t('grNew')||t('adNewGroup')}</button>
   </div>
   <div class="g g3 cas">
-    ${D.groups.map(g=>{
-      const free=g.capacity-g.enrolled, pct=Math.round(g.enrolled/g.capacity*100);
+    ${D.groups.map(gr0=>{
+      /* Un groupe fraîchement créé n'a pas forcément capacité / effectif / salle :
+         on affiche « — » au lieu de « undefined », et aucun calcul sur du vide. */
+      const g = Object.assign({name:'—', level:'', day:'sat', start:'—', end:'—', room:'', teacher:'',
+        schoolAr:'', schoolFr:'', capacity:0, enrolled:0}, gr0||{});
+      const lv = D.byId(D.levels, g.level) || {ar:g.level||'—', fr:g.level||'—', cls:''};
+      const day = DAYS[g.day] || ['—','—','—'];
+      const cap = (typeof g.capacity==='number' && isFinite(g.capacity)) ? g.capacity : 0;
+      const enr = (typeof g.enrolled==='number' && isFinite(g.enrolled)) ? g.enrolled : 0;
+      const free=cap-enr, pct=cap?Math.round(enr/cap*100):0;
       const dash=Math.round(2*Math.PI*24*pct/100), circ=Math.round(2*Math.PI*24);
-      return `<div class="grp ${g.cls} rv">
+      return `<div class="grp ${esc(g.cls||'')} rv">
         <div class="grp__h">
-          <div class="grp__b la">${g.name.replace(' · ','·')}</div>
-          ${free>0?`<span class="bd bd--ok la">${free} ${t('grFree')}</span>`:`<span class="bd bd--er">${t('grFull')}</span>`}
+          <div class="grp__b la">${esc(String(g.name).replace(' · ','·'))}</div>
+          ${!cap?`<span class="bd bd--gy">${t('grCap')}: —</span>`
+            :free>0?`<span class="bd bd--ok la">${free} ${t('grFree')}</span>`:`<span class="bd bd--er">${t('grFull')}</span>`}
         </div>
-        <div class="grp__n">${L_(D.byId(D.levels,g.level).ar,D.byId(D.levels,g.level).fr)}</div>
-        <div class="grp__f la">${g.name} · ${DAYS[g.day][2]} ${g.start}–${g.end}</div>
+        <div class="grp__n">${esc(L_(lv.ar,lv.fr))}</div>
+        <div class="grp__f la">${esc(g.name)} · ${day[2]} ${esc(g.start)}–${esc(g.end)}</div>
         <ul class="grp__l">
-          <li>${svg('cal')}<span>${DAYS[g.day][ar()?0:1]} · <b class="la">${g.start} – ${g.end}</b></span></li>
-          <li>${svg('school')}<span>${L_(g.schoolAr,g.schoolFr)}</span></li>
-          <li>${svg('user')}<span>${g.teacher} · ${t('onsite')}</span></li>
-          <li>${svg('target')}<span>${g.room} · ${t('grCap')} <b class="la">${g.capacity}</b></span></li>
+          <li>${svg('cal')}<span>${day[ar()?0:1]} · <b class="la">${esc(g.start)} – ${esc(g.end)}</b></span></li>
+          <li>${svg('school')}<span>${esc(L_(g.schoolAr,g.schoolFr)||'—')}</span></li>
+          <li>${svg('user')}<span>${esc(g.teacher||'—')} · ${t('onsite')}</span></li>
+          <li>${svg('target')}<span>${esc(g.room||'—')} · ${t('grCap')} <b class="la">${cap?cap:'—'}</b></span></li>
         </ul>
         <div class="grp__c">
           <svg class="ring" viewBox="0 0 56 56" width="52" height="52">
@@ -295,13 +319,14 @@ function groups(){
               stroke-dasharray="${dash} ${circ}" style="stroke:var(--lvc)"/></svg>
           <div style="flex:1">
             <div class="flex just-b" style="font-size:.82rem;margin-block-end:5px">
-              <span class="muted">${t('grStudents')}</span><b class="la">${g.enrolled}/${g.capacity}</b></div>
+              <span class="muted">${t('grStudents')}</span><b class="la">${cap?enr+'/'+cap:'—'}</b></div>
             <div class="prg prg--sm"><i data-w="${pct}%" style="width:${pct}%;background:var(--lvc)"></i></div>
           </div>
         </div>
         <div class="cd__f">
           <button class="btn btn--s btn--sm" style="flex:1">${svg('users','width="15" height="15"')}${t('grStudents')}</button>
-          <button class="iact">${svg('edit')}</button><button class="iact iact--er">${svg('trash')}</button>
+          <button class="iact" data-edit-group="${esc(g.id)}">${svg('edit')}</button>
+          <button class="iact iact--er" data-del-group="${esc(g.id)}">${svg('trash')}</button>
         </div>
       </div>`;}).join('')}
     <div class="grp grp--add rv" data-add-group style="cursor:pointer">
@@ -319,7 +344,7 @@ let QB = null;
 function initQB(){
   if(QB) return;
   QB = {
-    titleAr:'تمرين جديد', titleFr:'Nouvel exercice', level:'1AM', ax:'grammaire', diff:1, min:15,
+    titleAr:'تمرين جديد', titleFr:'Nouvel exercice', level:'1AM', ax:'grammaire', diff:1, min:15, tries:3,
     questions:[{tf:undefined,t:'Le chat …… dort sur le tapis.',o:['qui','que','dont','où'],a:0,d:1,
                 eAr:'« qui » يكون فاعلاً للفعل « dort ».',eFr:'« qui » est sujet du verbe « dort ».'}]
   };
@@ -409,10 +434,10 @@ function qbPreview(){
           <div class="qn" style="padding:0">
             <div class="qn__t" dir="ltr" style="text-align:start;font-size:.88rem">${q.t}</div>
             ${q.tf!==undefined
-              ? `<div class="qn__x" style="grid-template-columns:repeat(2,1fr);margin-block-start:10px">
+              ? `<div class="qn__x" style="margin-block-start:10px">
                    <button class="qo dis" style="padding:8px"><i>A</i><span>${t('tyTrue')}</span></button>
                    <button class="qo dis ok" style="padding:8px"><i>B</i><span>${t('tyFalse')}</span></button></div>`
-              : `<div class="qn__x" style="grid-template-columns:repeat(2,1fr);margin-block-start:10px">
+              : `<div class="qn__x" style="margin-block-start:10px">
                    ${q.o.map((o,j)=>`<button class="qo dis ${j===q.a?'ok':''}" style="padding:8px;font-size:.82rem"><i>${'ABCD'[j]}</i><span dir="ltr">${o}</span></button>`).join('')}</div>`}
           </div>`;})():`<div class="empty"><span class="ico ico--lg" style="margin-inline:auto">${svg('quiz')}</span><b>${t('qbEmpty')}</b></div>`}
       </div>
@@ -438,7 +463,7 @@ function qbPreview(){
 }
 function quizBuilder(){
   initQB();
-  return `<div class="g g-main" style="grid-template-columns:1fr 320px;align-items:start">
+  return `<div class="g g-main adm-split" style="--adm-side:320px">
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">${qbForm()}${qbQuestions()}</div>
     <div style="min-width:0">${qbPreview()}</div>
   </div>`;
@@ -483,9 +508,29 @@ function bindQB(panel){
   bind('#qbAx',e=>{QB.ax=e.target.value;});
   bind('#qbMin',e=>{QB.min=+e.target.value||15;});
   $$('#qbDiff button',panel).forEach(b=> b.addEventListener('click',()=> up(()=>{ QB.diff=+b.dataset.v; })));
-  const save=(pub)=>{ up(()=>{}); if(pub){ confetti(60); toast(t('qbSaved')||L_('حُفظ التمرين ونُشر ✓','Exercice enregistré et publié ✓'),'ok',3200); }
-    else toast(t('qbDrafted')||L_('حُفظ كمسودة','Enregistré comme brouillon'),'info',2400);
-    window.PKdb.add('exercises',{titleAr:QB.titleAr,titleFr:QB.titleFr,level:QB.level,ax:QB.ax,diff:QB.diff,questions:QB.questions.length}); };
+  /* Enregistrement COMPLET : on écrivait avant uniquement le NOMBRE de
+     questions → l'exercice publié était vide pour les élèves. */
+  const save = async (pub)=>{
+    up(()=>{});
+    if(!QB.questions.length){ toast(t('qbNeedQ'),'er',3200); return; }
+    const lv = QB.level || '1AM';
+    const doc = {
+      titleAr:QB.titleAr || QB.titleFr, titleFr:QB.titleFr || QB.titleAr,
+      ar:QB.titleAr || QB.titleFr, fr:QB.titleFr || QB.titleAr,
+      descAr:QB.descAr || '', descFr:QB.descFr || QB.descAr || '',
+      level:lv, ax:QB.ax, diff:QB.diff, min:QB.min, type:'quiz', tries:QB.tries||3,
+      questions: QB.questions.map(q=>Object.assign({}, q)),
+      q: QB.questions.length,
+      xpMax: QB.questions.reduce((a,q)=>a+Math.round(X.CFG.xpBase*(X.CFG.multDiff[q.d||1]||1)*(lv==='4AM'?1.6:1.2)),0),
+      published: !!pub
+    };
+    try{
+      await window.PKdb.add('exercises', doc);
+      if(pub) confetti(60);
+      toast(pub ? t('qbSaved') : t('qbDrafted'), pub?'ok':'info',3000);
+      refresh();
+    }catch(e){ cardErr(e); }
+  };
   const sb=$('[data-save-quiz]',panel); if(sb) sb.addEventListener('click',()=>save(true));
   const db=$('[data-save-draft]',panel); if(db) db.addEventListener('click',()=>save(false));
   const rb=$('[data-reset-qb]',panel); if(rb) rb.addEventListener('click',()=>{ QB=null; up(()=>{}); toast(L_('أُفرغ النموذج','Formulaire réinitialisé'),'wn',2000); });
@@ -508,36 +553,59 @@ function lessons(){
     ${D.lessons.map(l=>{
       const ex=D.exercises.filter(e=>e.lessonId===l.id).length;
       const ax=D.axes.find(a=>a.id===l.ax);
-      return `<div class="lsn rv" data-lesson="${l.id}">
-        <div class="lsn__t"><span class="lv__b ${D.byId(D.levels,l.level).cls}">${l.level}</span>
-          <span class="bd bd--gy">${ax?L_(ax.ar,ax.fr):(AXFR[l.ax]||l.ax)}</span>
+      const lv0=D.byId(D.levels,l.level)||{cls:'',ar:l.level||'—',fr:l.level||'—'};
+      const sum=L_(l.sumAr||'',l.sumFr||'');
+      const pub=(l.published!==undefined ? !!l.published : !!l.done);
+      return `<div class="lsn rv" data-lesson="${esc(l.id)}">
+        <div class="lsn__t"><span class="lv__b ${esc(lv0.cls)}">${esc(l.level||'—')}</span>
+          <span class="bd bd--gy">${esc(ax?L_(ax.ar,ax.fr):(AXFR[l.ax]||l.ax||'—'))}</span>
           ${l.isNew?`<span class="bd bd--ac">${svg('spark','width="11" height="11"')}${t('lsNew')}</span>`:''}
-          <span class="bd ${l.done?'bd--ok':'bd--wn'}" style="margin-inline-start:auto">${l.done?t('lsPub'):t('lsDraft')}</span></div>
-        <h3 class="lsn__n" dir="ltr">${L_(l.ar,l.fr)}</h3>
-        <p class="lsn__d">${L_(l.sumAr,l.sumFr)}</p>
+          <span class="bd ${pub?'bd--ok':'bd--wn'}" style="margin-inline-start:auto">${pub?t('lsPub'):t('lsDraft')}</span></div>
+        <h3 class="lsn__n" dir="ltr">${esc(L_(l.ar,l.fr)||'—')}</h3>
+        ${sum?`<p class="lsn__d">${esc(sum)}</p>`:'<p class="lsn__d muted">—</p>'}
         <div class="lsn__f la">
-          <span>${svg('clock','width="13" height="13"')}${l.min} min</span>
+          <span>${svg('clock','width="13" height="13"')}${orDash(l.min)} min</span>
           <span>${svg('quiz','width="13" height="13"')}${ex}</span>
           <span>${svg('bolt','width="13" height="13"')}${l.xp||25} XP</span>
           <span>${svg('file','width="13" height="13"')}${l.files||0} ${t('lsPdf')}</span>
           ${l.video?`<span>${svg('play','width="13" height="13"')}${t('lsVideo')}</span>`:''}
         </div>
-        <div class="cd__f"><button class="btn btn--s btn--sm" style="flex:1">${svg('edit','width="15" height="15"')}${t('edit')}</button>
-          <button class="btn btn--g btn--sm">${svg('eye','width="15" height="15"')}</button>
-          <button class="iact iact--er">${svg('trash')}</button></div>
+        <div class="cd__f"><button class="btn btn--s btn--sm" style="flex:1" data-edit-lesson="${esc(l.id)}">${svg('edit','width="15" height="15"')}${t('edit')}</button>
+          <a class="btn btn--g btn--sm" href="${esc(l.level)}" onclick="return false" title="${esc(l.level)}">${svg('eye','width="15" height="15"')}</a>
+          <button class="iact iact--er" data-del-lesson="${esc(l.id)}">${svg('trash')}</button></div>
       </div>`;}).join('')}
   </div>
   <div class="cd mt5 rv">
     <div class="cd__t mb4" data-i18n="lsEd">${t('lsEd')}</div>
     <div class="cd__s mb5" data-i18n="lsEdS">${t('lsEdS')}</div>
-    <div class="ed__t">
-      ${[['bold','B'],['italic','I'],['underline','U'],['h','H2'],['list','•'],['quote','❝'],['link','🔗'],['img','🖼'],['code','</>']]
-        .map(([k,lb])=>`<button class="ed__b" title="${k}">${lb}</button>`).join('')}
-      <span style="margin-inline-start:auto;display:flex;gap:8px">
-        <button class="btn btn--g btn--sm">${svg('save','width="15" height="15"')}${t('save')}</button>
-        <button class="btn btn--p btn--sm">${svg('up','width="15" height="15"')}${t('lsPub')}</button></span>
+    <div class="g g2 mt4" style="gap:14px">
+      <div class="fld"><label data-i18n="lsEdTitleAr">${t('lsEdTitleAr')}</label>
+        <input class="inp" id="lsAr" placeholder="${L_('مثال: الضمائر الموصولة','Ex. : Les pronoms relatifs')}"></div>
+      <div class="fld"><label data-i18n="lsEdTitleFr">${t('lsEdTitleFr')}</label>
+        <input class="inp" id="lsFr" dir="ltr" placeholder="Ex. : Les pronoms relatifs"></div>
+      <div class="fld"><label data-i18n="lsEdLv">${t('lsEdLv')}</label>
+        <select class="sel" id="lsLv">${D.levels.map(l=>`<option value="${l.id}">${l.id}</option>`).join('')}</select></div>
+      <div class="fld"><label data-i18n="lsEdAx">${t('lsEdAx')}</label>
+        <select class="sel" id="lsAx">${Object.entries(AXFR).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+      <div class="fld"><label data-i18n="lsEdSumAr">${t('lsEdSumAr')}</label>
+        <input class="inp" id="lsSumAr"></div>
+      <div class="fld"><label data-i18n="lsEdSumFr">${t('lsEdSumFr')}</label>
+        <input class="inp" id="lsSumFr" dir="ltr"></div>
+      <div class="fld"><label data-i18n="lsEdMin">${t('lsEdMin')}</label>
+        <input class="inp la" id="lsMin" type="number" min="5" max="180" value="20"></div>
+      <div class="fld"><label data-i18n="lsEdXp">${t('lsEdXp')}</label>
+        <input class="inp la" id="lsXp" type="number" min="5" max="200" value="25"></div>
     </div>
-    <div class="ed__b2" contenteditable="true" dir="ltr" style="min-height:180px;padding:20px;border:1px solid var(--line);border-radius:0 0 var(--r2) var(--r2);font-size:.95rem;line-height:1.9">
+    <input type="hidden" id="lsId">
+    <div class="ed__t">
+      ${[['bold','B'],['italic','I'],['underline','U'],['h','H2'],['list','•'],['quote','❝'],['link','🔗'],['code','</>']]
+        .map(([k,lb])=>`<button class="ed__b" data-ed="${k}" title="${k}">${lb}</button>`).join('')}
+      <span style="margin-inline-start:auto;display:flex;gap:8px">
+        <button class="btn btn--g btn--sm" data-ls-save>${svg('save','width="15" height="15"')}${t('lsEdSaveDraft')}</button>
+        <button class="btn btn--p btn--sm" data-ls-pub>${svg('up','width="15" height="15"')}${t('lsEdPublish')}</button></span>
+    </div>
+    <div class="cd__s mb3" data-i18n="lsEdContent">${t('lsEdContent')}</div>
+    <div class="ed__b2" id="lsBody" contenteditable="true" dir="ltr" style="min-height:180px;padding:20px;border:1px solid var(--line);border-radius:0 0 var(--r2) var(--r2);font-size:.95rem;line-height:1.9">
       <h3 style="margin:0 0 10px">Les pronoms relatifs</h3>
       <p><b>qui</b> → sujet · <b>que</b> → COD · <b>dont</b> → complément introduit par « de » · <b>où</b> → lieu / temps</p>
       <p style="color:#55617E">Exemple : Le livre <i>dont</i> je parle est intéressant.</p>
@@ -552,21 +620,21 @@ function lessons(){
 
 /* ══════════════════ SUIVI DE PROGRESSION ══════════════════ */
 function progression(){
-  const st=D.students;
+  const st=D.students.map(stn);
   const ranks=X.RANKS.map((r,i)=>({r, n:st.filter(s=>X.rankOf(s.xp).ar===r.ar).length}));
   const maxR=Math.max(1,...ranks.map(x=>x.n));
   const bdgCount={};
   st.forEach(s=>(s.badges||[]).forEach(b=>{ bdgCount[b]=(bdgCount[b]||0)+1; }));
   return `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${[[t('stTotalXp'),st.reduce((a,s)=>a+s.xp,0).toLocaleString('fr-FR'),'bolt','ico--wn'],
-       [t('stAvgXp'),Math.round(st.reduce((a,s)=>a+s.xp,0)/st.length).toLocaleString('fr-FR'),'trend',''],
+       [t('stAvgXp'),avgOrDash(st.reduce((a,s)=>a+s.xp,0), st.length),'trend',''],
        [t('stExDone'),st.reduce((a,s)=>a+s.exDone,0),'quiz','ico--cy'],
-       [t('stAccuracy'),Math.round(st.reduce((a,s)=>a+s.correct/s.answered*100,0)/st.length)+'%','checkc','ico--ok']]
+       [t('stAccuracy'),pctOrDash(st.reduce((a,s)=>a+(s.correct||0),0), st.reduce((a,s)=>a+(s.answered||0),0)),'checkc','ico--ok']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
         <div class="kpi__n la">${v}</div><div class="kpi__l">${l}</div></div>`).join('')}
   </div>
-  <div class="g g2 mt5 cas" style="grid-template-columns:380px 1fr">
+  <div class="g g2 mt5 cas adm-split adm-split--rev" style="--adm-side:380px">
     <div class="cd rv">
       <div class="cd__h"><div><div class="cd__t" data-i18n="stRanks">${t('stRanks')}</div>
         <div class="cd__s">${L_('توزيع الرتب','Répartition des rangs')}</div></div></div>
@@ -601,7 +669,7 @@ function progression(){
       <thead><tr><th>${t('stuName')}</th><th>${t('stuLevel')}</th><th>XP</th><th>${t('rank')}</th>
         <th>${t('streak')}</th><th>${t('exDone')}</th><th>${t('accuracy')}</th><th>${t('mastery')}</th><th>${t('badges')}</th></tr></thead>
       <tbody>${st.map(s=>{const r=X.rankOf(s.xp), rp=X.rankProgress(s.xp), gm=X.globalMastery(s.mastery),
-        acc=Math.round(s.correct/s.answered*100); return `<tr>
+        acc=pctOrDash(s.correct||0, s.answered||0); return `<tr>
         <td><div class="who"><span class="av" style="background:${s.color||'#1E4FD8'}">${ini(s.fr)}</span><div><b>${L_(s.ar,s.fr)}</b><small>${s.group}</small></div></div></td>
         <td><span class="bd bd--lv ${D.byId(D.levels,s.level).cls}">${s.level}</span></td>
         <td><b class="la acc">${s.xp.toLocaleString('fr-FR')}</b></td>
@@ -610,7 +678,7 @@ function progression(){
           <div class="prg prg--sm"><i data-w="${rp.pct}%" style="width:${rp.pct}%"></i></div></div></td>
         <td><span class="la">${svg('flame','width="13" height="13" fill="var(--wn)" stroke="none" style="display:inline;vertical-align:-2px"')} ${s.streak}</span></td>
         <td class="la">${s.exDone}</td>
-        <td><span class="bd ${acc>=80?'bd--ok':acc>=55?'bd--wn':'bd--er'} la">${acc}%</span></td>
+        <td><span class="bd la">${acc}</span></td>
         <td><b class="la">${gm}%</b></td>
         <td><div class="flex gap2">${(s.badges||[]).slice(0,4).map(id=>{const b=X.BADGES.find(x=>x.id===id);return b?`<span class="ico ico--xs" title="${t(b.i18n)}">${svg(b.icon)}</span>`:'';}).join('')}
           ${(s.badges||[]).length>4?`<span class="bd bd--gy la">+${(s.badges||[]).length-4}</span>`:''}</div></td>
@@ -624,6 +692,7 @@ const MODS={
   bank:    {t:()=>t('adQbank'),    ic:'layers', fn:qbank, hidden:true},
   tt:      {t:()=>t('adTT'),        ic:'cal',    fn:timetable},
   students:{t:()=>t('adStudents'),  ic:'users',  fn:students},
+  reg:     {t:()=>t('adReg'),       ic:'mail',   fn:registrations, bind:bindRegs},
   groups:  {t:()=>t('adGroupsM'),   ic:'school', fn:groups},
   quiz:    {t:()=>t('adQuiz'),      ic:'quiz',   fn:quizBuilder, bind:bindQB},
   lessons: {t:()=>t('adLessons'),   ic:'book',   fn:lessons},
@@ -641,11 +710,12 @@ function moduleFromHash(){
 function render(mn){
   L = window.PKi18n.current();
   /* حماية اللوحة في الوضع الحيّ : role admin فقط */
-  if(!window.PKdb.mock && !(window.PKdata.me && window.PKdata.me.role==='admin')){
-    mn.innerHTML = `<section class="gate"><div class="gate__c">${svg('lock','width="36" height="36"')}
-      <h2>${t('adminOnly')}</h2>
-      <button class="btn btn--p btn--lg" data-gate-login>${t('navLogin')} · Google</button>
-      <p class="gate__s">${t('notConnected')}</p></div></section>`;
+  /* Le panneau exige un compte admin — dans TOUS les cas. Avant, en mode
+     « base locale » (Firebase indisponible) la porte disparaissait : on voyait
+     un panneau vide sans aucun bouton de connexion. */
+  if(!(window.PKdata.me && window.PKdata.me.role==='admin')){
+    /* trois cas distincts : non connecté / connecté sans rôle admin / base locale */
+    mn.innerHTML = window.PKapp.PKgate.adminGate();
     window.PKapp.PKgate.bind(mn, ()=>render(mn)); return;
   }
   cur = moduleFromHash();
@@ -671,6 +741,12 @@ function render(mn){
   </div>
   <div id="adPanel"></div>`;
 
+  /* palette de commandes (Ctrl+K / 🔍) : elle était vide dans l'admin.
+     Chaque entrée ouvre réellement son module (aucun lien mort). */
+  window.PK.setPalette(Object.keys(MODS).map(k=>({
+    label: MODS[k].t(), icon: MODS[k].ic, group: t('adPanel'),
+    run: ()=>{ if(moduleFromHash() === k){ cur = k; show(mn); } else location.hash = k; }
+  })));
   $('#adSearch',mn).addEventListener('click',()=>window.PK.openPalette());
   $('#adPublish',mn).addEventListener('click',()=>{ confetti(70); toast(t('adPublished')||L_('تم النشر بنجاح ✓','Publication réussie ✓'),'ok',3000); });
   $$('[data-atab]',mn).forEach(b=> b.addEventListener('click',()=>{ cur=b.dataset.atab; show(mn); }));
@@ -681,8 +757,23 @@ function render(mn){
 function show(mn){
   const panel = $('#adPanel', mn) || $('#adPanel');
   const host = panel || mn;
-  host.innerHTML = `<div class="atab lpn" data-panel="${cur}">${MODS[cur].fn()}</div>`;
+  /* Isolation du rendu : en cas d'erreur on affiche un message honnête avec la
+     cause — au lieu de laisser le panneau précédent à l'écran (l'utilisateur
+     croirait alors que « cliquer sur التلاميذ » ramène à la page d'accueil). */
+  let inner;
+  try{
+    inner = MODS[cur].fn();
+  }catch(err){
+    if(window.console) console.error('[PK] module « '+cur+' » :', err);
+    inner = `<div class="cd" style="max-width:640px">
+      <div class="cd__t">${t('modErrT')}</div>
+      <p class="muted" style="font-size:.88rem;line-height:1.8">${t('modErrS')}</p>
+      <pre dir="ltr" style="white-space:pre-wrap;word-break:break-word;background:var(--bg2,#f1f3f8);border-radius:10px;padding:10px 12px;font-size:.8rem">${esc(String((err && err.message) || err)).slice(0,400)}</pre>
+      <button class="btn btn--p btn--sm mt3" data-mod-retry>${t('regRetry')}</button></div>`;
+  }
+  host.innerHTML = `<div class="atab lpn" data-panel="${cur}">${inner}</div>`;
   const p = host.firstChild;
+  const rr = $('[data-mod-retry]', p); if(rr) rr.addEventListener('click', ()=>show(mn));
   if(MODS[cur].bind) MODS[cur].bind(p);
   $('#adTitle') && ($('#adTitle').textContent = MODS[cur].t());
   $$('[data-atab]').forEach(b=> b.classList.toggle('on', b.dataset.atab===cur));
@@ -691,13 +782,114 @@ function show(mn){
   bindCommon(p);
 }
 function bindCommon(p){
-  const add=(sel,msg)=>{ const b=$(sel,p); if(b) b.addEventListener('click',()=>toast(msg,'info',2600)); };
-  add('[data-add-student]', L_('نموذج تسجيل تلميذ جديد (تجريبي)','Formulaire d’inscription d’un élève (démo)'));
-  add('[data-add-group]',   L_('نموذج إنشاء فوج جديد (تجريبي)','Formulaire de création d’un groupe (démo)'));
-  add('[data-add-lesson]',  L_('محرّر الدروس في الأسفل ↓','L’éditeur de cours est en bas ↓'));
-  add('[data-new-session]', L_('إضافة حصة خاصة جديدة (تجريبي)','Ajouter une séance de cours particulier (démo)'));
-  add('[data-link]',        L_('أُرسل رابط الربط إلى البريد ✓','Lien de rattachement envoyé ✓'));
-  add('[data-print]',       L_('جارٍ تجهيز PDF للطباعة…','Préparation du PDF pour impression…'));
+  /* ══════════════════════════════════════════════════════════════
+     Actions réelles (fini les boutons « démo ») :
+     élève · groupe/séance · liaison e-mail · annonce · cours · impression
+     ══════════════════════════════════════════════════════════════ */
+
+  /* ── طلبات التسجيل : فتح الوحدة مباشرة ── */
+  const gr=$('[data-goto-reg]',p);
+  if(gr) gr.addEventListener('click', e=>{
+    e.preventDefault();
+    location.hash = 'reg';
+    cur = 'reg';
+    const mn = document.querySelector('.mn') || document;
+    show(mn);
+    window.scrollTo(0,0);
+  });
+
+  /* ── élèves ── */
+  const as=$('[data-add-student]',p); if(as) as.addEventListener('click', ()=>openStudentForm());
+  const al=$('[data-add-lesson]',p);  if(al) al.addEventListener('click', ()=>newLesson());
+  $$('[data-edit-student]',p).forEach(b=> b.addEventListener('click', ()=>{
+    const s=D.students.find(x=>x.id===b.dataset.editStudent); if(s) openStudentForm({student:s});
+  }));
+  $$('[data-del-student]',p).forEach(b=> b.addEventListener('click', async ()=>{
+    if(!window.confirm(t('confirmDel'))) return;
+    try{ await window.PKdb.remove('students', b.dataset.delStudent); window.PK.toast(t('studentDeleted'),'ok',2400); refresh(); }
+    catch(e){ cardErr(e); }
+  }));
+
+  /* ── liaison e-mail ↔ fiche ── */
+  const lk=$('[data-link]',p);
+  if(lk) lk.addEventListener('click', ()=>{
+    openLinkDialog({email: valOf('lkEmail'), studentId: valOf('lkStudent')});
+  });
+  const bf=$('[data-backfill]',p);
+  if(bf) bf.addEventListener('click', async ()=>{
+    bf.disabled = true;
+    try{
+      const r = await window.PKdb.backfillLinks();
+      window.PK.toast(r && r.ok ? t('backfillOk')+' ('+(r.added||0)+')' : t('linkErr'), (r&&r.ok)?'ok':'er', 3600);
+      refresh();
+    }catch(e){ cardErr(e); } finally{ bf.disabled = false; }
+  });
+
+  /* ── demandes en attente : relier ou créer la fiche ── */
+  $$('[data-approve-user]',p).forEach(b=> b.addEventListener('click', ()=>{
+    openLinkDialog({email:b.dataset.mail, uid:b.dataset.approveUser});
+  }));
+  $$('[data-new-for]',p).forEach(b=> b.addEventListener('click', ()=>{
+    openStudentForm({email:b.dataset.mail, name:b.dataset.name});
+  }));
+
+  /* ── groupes / séances ── */
+  $$('[data-add-group]',p).forEach(b=> b.addEventListener('click', ()=>openGroupForm()));
+  const ns=$('[data-new-session]',p); if(ns) ns.addEventListener('click', ()=>openGroupForm());
+  $$('[data-del-group]',p).forEach(b=> b.addEventListener('click', async ()=>{
+    if(!window.confirm(t('confirmDel'))) return;
+    try{ await window.PKdb.remove('groups', b.dataset.delGroup); window.PK.toast(t('grpDeleted'),'ok',2400); refresh(); }
+    catch(e){ cardErr(e); }
+  }));
+  $$('[data-edit-group]',p).forEach(b=> b.addEventListener('click', ()=>{
+    const g=D.groups.find(x=>x.id===b.dataset.editGroup); if(g) openGroupForm(g);
+  }));
+
+  /* ── annonces ── */
+  const sn=$('[data-send-ann]',p);
+  if(sn) sn.addEventListener('click', async ()=>{
+    const ar=valOf('anAr'), fr=valOf('anFr'), body=valOf('anBody');
+    if(!ar && !fr && !body){ window.PK.toast(t('annNeedText'),'er',3200); return; }
+    const aud=valOf('anAud');
+    const doc={
+      ar:ar||fr, fr:fr||ar, titleAr:ar||fr, titleFr:fr||ar,
+      arBody:body, frBody:body, bodyAr:body, bodyFr:body,
+      i18n:{ar:ar||fr, fr:fr||ar, arBody:body, frBody:body, bodyAr:body, bodyFr:body},
+      importance:valOf('anImp')||'info',
+      audienceAr:aud||'', audienceFr:aud||'',
+      pinned: !!(document.getElementById('anPin') && document.getElementById('anPin').checked),
+      date: new Date().toISOString().slice(0,10)
+    };
+    sn.disabled = true;
+    try{ await window.PKdb.add('announcements', doc); window.PK.toast(t('annPublished'),'ok',3200); refresh(); }
+    catch(e){ cardErr(e); } finally{ sn.disabled = false; }
+  });
+  $$('[data-del-ann]',p).forEach(b=> b.addEventListener('click', async ()=>{
+    if(!window.confirm(t('confirmDel'))) return;
+    try{ await window.PKdb.remove('announcements', b.dataset.delAnn); window.PK.toast(t('annDeleted'),'ok',2400); refresh(); }
+    catch(e){ cardErr(e); }
+  }));
+  $$('[data-pin-ann]',p).forEach(b=> b.addEventListener('click', async ()=>{
+    try{ await window.PKdb.set('announcements', b.dataset.pinAnn, {pinned: b.dataset.pin!=='1'}); refresh(); }
+    catch(e){ cardErr(e); }
+  }));
+
+  /* ── cours (éditeur) ── */
+  $$('[data-edit-lesson]',p).forEach(b=> b.addEventListener('click', ()=>openLessonEditor(b.dataset.editLesson)));
+  $$('[data-del-lesson]',p).forEach(b=> b.addEventListener('click', async ()=>{
+    if(!window.confirm(t('confirmDel'))) return;
+    try{ await window.PKdb.remove('lessons', b.dataset.delLesson); window.PK.toast(t('lsDeleted'),'ok',2400); refresh(); }
+    catch(e){ cardErr(e); }
+  }));
+  if($('#lsBody',p)) bindLessonEditor(p);
+
+  /* ── impression (le CSS d'impression existe déjà) ── */
+  $$('[data-print]',p).forEach(b=> b.addEventListener('click', ()=>{
+    window.PK.toast(t('printGo'),'info',1800);
+    setTimeout(()=>window.print(), 350);
+  }));
+
+  /* ── filtres / recherche du tableau des élèves (inchangés) ── */
   const f=$('#stuFilter',p);
   if(f) f.addEventListener('input',()=>{
     const v=f.value.trim().toLowerCase();
@@ -709,33 +901,39 @@ function bindCommon(p){
   if(lv) lv.addEventListener('change',()=>{ $$('.chip',p).forEach(c=>c.classList.toggle('on', c.dataset.f===(lv.value||'all'))); filterChips(p, lv.value||'all'); });
   $$('.chip',p).forEach(c=> c.addEventListener('click',()=>{
     $$('.chip',p).forEach(x=>x.classList.toggle('on',x===c)); filterChips(p,c.dataset.f); }));
-  $$('[data-view-student]',p).forEach(b=> b.addEventListener('click',()=>{
-    const s=D.students.find(x=>x.id===b.dataset.viewStudent); if(!s) return;
+
+  /* ── fiche détaillée d'un élève ── */
+  $$('[data-view-student]',p).forEach(b=> b.addEventListener('click', ()=>{
+    const raw=D.students.find(x=>x.id===b.dataset.viewStudent); if(!raw) return;
+    const s=stn(raw);
     const r=X.rankOf(s.xp), rp=X.rankProgress(s.xp);
-    const acc=s.answered?Math.round(s.correct/s.answered*100):0, mst=X.globalMastery(s.mastery);
+    const acc=pctOrDash(s.correct||0, s.answered||0), mst=X.globalMastery(s.mastery);
     modal(`<div class="md">
-      <div class="md__h"><div class="who"><span class="av" style="background:${s.color};width:44px;height:44px;font-size:1rem">${ini(s.fr)}</span>
-        <div><b style="font-size:1.05rem">${L_(s.ar,s.fr)}</b><small class="muted">${s.group} · ${s.level}</small></div></div>
+      <div class="md__h"><div class="who"><span class="av" style="background:${s.color};width:44px;height:44px;font-size:1rem">${esc(ini(s.fr||s.ar||'--'))}</span>
+        <div><b style="font-size:1.05rem">${esc(L_(s.ar,s.fr)||'—')}</b><small class="muted">${esc(s.group||'—')} · ${esc(s.level)}</small></div></div>
         <button class="iact" data-close>${svg('x')}</button></div>
       <div class="md__b">
         <div class="flex items-c gap3 mb4"><span class="ico">${svg(r.icon)}</span>
           <div><b>${L_(r.ar,r.fr)}</b><div class="muted la" style="font-size:.82rem">${s.xp.toLocaleString('fr-FR')} XP · ${rp.pct}%</div></div></div>
         <div class="prg mb5"><i style="width:${rp.pct}%"></i></div>
         <div class="g g3 mb5" style="gap:12px">
-          ${[[t('streak'),s.streak],[t('accuracy'),acc+'%'],[t('mastery'),mst+'%']]
+          ${[[t('streak'),s.streak],[t('accuracy'),acc],[t('mastery'),mst+'%']]
             .map(([l,v])=>`<div class="cd cd--flat" style="background:var(--bg2);padding:14px;text-align:center">
               <div class="la" style="font-size:1.3rem;font-weight:800">${v}</div><div class="muted" style="font-size:.78rem">${l}</div></div>`).join('')}
         </div>
         <div class="cd__t mb4" style="font-size:.95rem">${t('mastery')}</div>
         <div class="g gap3">${Object.entries(s.mastery).map(([k,v])=>`<div>
-          <div class="flex just-b" style="font-size:.82rem;margin-block-end:5px"><b class="la">${AXFR[k]||k}</b><span class="la muted">${v}%</span></div>
+          <div class="flex just-b" style="font-size:.82rem;margin-block-end:5px"><b class="la">${esc(AXFR[k]||k)}</b><span class="la muted">${v}%</span></div>
           <div class="prg prg--sm"><i style="width:${v}%"></i></div></div>`).join('')}</div>
         <div class="cd__t mt5 mb3" style="font-size:.95rem">${t('badges')}</div>
         <div class="flex gap3 wrap-f">${s.badges.map(id=>{const b=X.BADGES.find(x=>x.id===id);return b?`<span class="bd">${svg(b.icon,'width="13" height="13"')}${t(b.i18n)}</span>`:'';}).join('')||`<span class="muted">${t('empty')}</span>`}</div>
       </div>
       <div class="md__f"><button class="btn btn--g" data-close>${t('close')}</button>
-        <button class="btn btn--p">${svg('edit','width="17" height="17"')}${t('edit')}</button></div>
-    </div>`);
+        <button class="btn btn--p" data-edit-student="${esc(s.id)}">${svg('edit','width="17" height="17"')}${t('edit')}</button></div>
+    </div>`).el.querySelector('[data-edit-student]').addEventListener('click', ()=>{
+      document.querySelectorAll('.mdl').forEach(m=>m.remove());
+      openStudentForm({student:s});
+    });
   }));
 }
 function filterChips(p,f){
@@ -756,10 +954,10 @@ function syncTop(mn){
 
 /* ══════════════════ BANQUE DE QUESTIONS ══════════════════ */
 function qbank(){
-  const qs=[]; D.exercises.forEach(e=> e.questions.forEach(q=> qs.push({e,q})));
+  const qs=[]; D.exercises.forEach(e=> (Array.isArray(e.questions)?e.questions:[]).forEach(q=> qs.push({e,q})));
   const byAx={}; qs.forEach(({e})=>{ byAx[e.ax]=(byAx[e.ax]||0)+1; });
   return `
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${[[t('adQbank'),qs.length,'layers','ico--pu'],[t('qbAx'),Object.keys(byAx).length,'target','ico--cy'],
        [t('exTypes'),3,'quiz',''],[t('diff')+L_(' صعلة',' difficultés'),3,'bolt','ico--wn']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
@@ -781,7 +979,7 @@ function qbank(){
       <tbody>${qs.slice(0,18).map(({e,q})=>`<tr>
         <td dir="ltr" style="text-align:start;font-size:.87rem">${q.t.length>72?q.t.slice(0,72)+'…':q.t}</td>
         <td><span class="bd bd--gy">${AXFR[e.ax]||e.ax}</span></td>
-        <td><span class="bd bd--lv ${D.byId(D.levels,e.level).cls}">${e.level}</span></td>
+        <td><span class="bd bd--lv ${esc((D.byId(D.levels,e.level)||{}).cls||'')}">${esc(e.level||'—')}</span></td>
         <td><span class="diff diff--${q.d||1}"><i class="on"></i><i class="${(q.d||1)>=2?'on':''}"></i><i class="${(q.d||1)>=3?'on':''}"></i></span></td>
         <td><span class="qtype qtype--${q.tf!==undefined?'tf':'mcq'}">${q.tf!==undefined?t('tyTf'):(q.o?t('tyMcq'):t('qbAddFill'))}</span></td>
         <td class="la acc"><b>+${Math.round(X.CFG.xpBase*(X.CFG.multDiff[q.d||1]||1))}</b></td>
@@ -804,7 +1002,7 @@ function announce(){
       <p class="muted" style="font-size:.9rem">${L_('تصل التلاميذ فوراً في فضاءهم','Parviennent immédiatement aux élèves dans leur espace')}</p></div>
     <button class="btn btn--p" data-new-ann>${svg('plus','width="17" height="17"')}${L_('إعلان جديد','Nouvelle annonce')}</button>
   </div>
-  <div class="g g-main" style="grid-template-columns:1fr 380px;align-items:start">
+  <div class="g g-main adm-split" style="--adm-side:380px">
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
       ${D.announcements.map(a=>{
         const c=a.i18n||{}; const imp=a.importance||'info';
@@ -816,26 +1014,26 @@ function announce(){
             <div class="flex gap2">${a.pinned?`<span class="bd bd--wn">${svg('pin','width="12" height="12"')}${t('annPinned')}</span>`:''}
               <span class="bd" style="background:color-mix(in srgb,${col} 12%,transparent);color:${col};border-color:color-mix(in srgb,${col} 28%,transparent)">${L_(imp==='urgent'?'عاجل':imp==='important'?'مهم':'معلومة',imp==='urgent'?'Urgent':imp==='important'?'Important':'Info')}</span></div>
           </div>
-          <p style="font-size:.92rem;line-height:1.85">${L_(c.arBody||a.bodyAr,c.frBody||a.bodyFr)||L_('',' ')}</p>
-          <div class="cd__f"><button class="btn btn--s btn--sm">${svg('edit','width="15" height="15"')}${t('edit')}</button>
-            <button class="btn btn--g btn--sm">${svg('pin','width="15" height="15"')}${a.pinned?L_('إلغاء التثبيت','Détacher'):L_('تثبيت','Épingler')}</button>
-            <button class="iact iact--er" style="margin-inline-start:auto">${svg('trash')}</button></div>
+          <p style="font-size:.92rem;line-height:1.85">${esc(L_(c.arBody||a.bodyAr,c.frBody||a.bodyFr)||'')}</p>
+          <div class="cd__f">
+            <button class="btn btn--g btn--sm" data-pin-ann="${esc(a.id)}" data-pin="${a.pinned?1:0}">${svg('pin','width="15" height="15"')}${a.pinned?L_('إلغاء التثبيت','Détacher'):L_('تثبيت','Épingler')}</button>
+            <button class="iact iact--er" style="margin-inline-start:auto" data-del-ann="${esc(a.id)}">${svg('trash')}</button></div>
         </div>`;}).join('')}
     </div>
     <div class="cd rv" style="position:sticky;top:90px">
       <div class="cd__t mb4" data-i18n="adAnn">${t('adAnn')}</div>
-      <div class="fld"><label>${L_('العنوان بالعربية','Titre (AR)')}</label><input class="inp" placeholder="${L_('مثال: حصّة تعويضية','Ex. : séance de rattrapage')}"></div>
-      <div class="fld mt4"><label>${L_('Titre (FR)','العنوان بالفرنسية')}</label><input class="inp" dir="ltr" placeholder="Ex. : séance de rattrapage"></div>
-      <div class="fld mt4"><label>${L_('النص','Message')}</label><textarea class="inp ta" rows="4" placeholder="…"></textarea></div>
+      <div class="fld"><label data-i18n="anTitleArF">${t('anTitleArF')}</label><input class="inp" id="anAr" placeholder="${L_('مثال: حصّة تعويضية','Ex. : séance de rattrapage')}"></div>
+      <div class="fld mt4"><label data-i18n="anTitleFrF">${t('anTitleFrF')}</label><input class="inp" id="anFr" dir="ltr" placeholder="Ex. : séance de rattrapage"></div>
+      <div class="fld mt4"><label data-i18n="anBodyF">${t('anBodyF')}</label><textarea class="inp ta" id="anBody" rows="4" placeholder="…"></textarea></div>
       <div class="g g2 mt4" style="gap:12px">
-        <div class="fld"><label>${L_('الأهمية','Importance')}</label>
-          <select class="sel sel--sm"><option>${L_('معلومة','Info')}</option><option>${L_('مهم','Important')}</option><option>${L_('عاجل','Urgent')}</option></select></div>
-        <div class="fld"><label>${L_('الجمهور','Audience')}</label>
-          <select class="sel sel--sm"><option>${L_('الكل','Tous')}</option>${D.groups.map(g=>`<option>${g.name}</option>`).join('')}${D.levels.map(l=>`<option>${l.id}</option>`).join('')}</select></div>
+        <div class="fld"><label data-i18n="anImpF">${t('anImpF')}</label>
+          <select class="sel sel--sm" id="anImp"><option value="info">${L_('معلومة','Info')}</option><option value="important">${L_('مهم','Important')}</option><option value="urgent">${L_('عاجل','Urgent')}</option></select></div>
+        <div class="fld"><label data-i18n="anAudF">${t('anAudF')}</label>
+          <select class="sel sel--sm" id="anAud"><option value="">${t('anAll')}</option>${D.groups.map(g=>`<option>${esc(g.name)}</option>`).join('')}${D.levels.map(l=>`<option>${l.id}</option>`).join('')}</select></div>
       </div>
       <label class="flex items-c gap3 mt4" style="font-size:.88rem;cursor:pointer">
-        <input type="checkbox" checked> ${L_('تثبيت في أعلى فضاء التلميذ','Épingler en haut de l’espace élève')}</label>
-      <button class="btn btn--p btn--blk mt5" data-send-ann>${svg('up','width="17" height="17"')}${L_('نشر الإعلان','Publier l’annonce')}</button>
+        <input type="checkbox" id="anPin" checked> ${L_('تثبيت في أعلى فضاء التلميذ','Épingler en haut de l’espace élève')}</label>
+      <button class="btn btn--p btn--blk mt5" data-send-ann>${svg('up','width="17" height="17"')}${t('anPublishF')}</button>
       <p class="muted mt4" style="font-size:.78rem;line-height:1.7">${svg('info','width="13" height="13" style="display:inline;vertical-align:-2px"')}
         ${L_('يمكن إرسال إعلان بالبريد لاحقاً عند ربط Firebase.','Un envoi par e-mail pourra être ajouté après connexion à Firebase.')}</p>
     </div>
@@ -857,7 +1055,7 @@ function messages(){
   const m0=msgs[Math.min(msgSel,msgs.length-1)];
   const ini=w=>String(w).split(' ').map(x=>x[0]).join('').slice(0,2);
   return `
-  <div class="g" style="grid-template-columns:340px 1fr;gap:20px;align-items:start">
+  <div class="g adm-split adm-split--rev" style="--adm-side:340px;gap:20px">
     <div class="cd cd--f rv" style="padding:0;overflow:hidden">
       <div style="padding:16px 18px;border-block-end:1px solid var(--line)">
         <div class="srch">${svg('search')}<input class="inp inp--sm" placeholder="${L_('ابحث في الرسائل…','Rechercher…')}"></div>
@@ -932,7 +1130,7 @@ function settings(){
       <span class="bd bd--gy la">${k}</span></label>`;
 
   return `
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main adm-split" style="--adm-side:340px">
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
 
       <div class="cd rv">
@@ -1206,6 +1404,345 @@ function bindSettings(panel){
     Promise.resolve(window.PKdb.resetSettings()).catch(()=>{});
     toast(L_('جارٍ إعادة القيم الأصلية…','Restauration des valeurs d’usine…'),'wn',2600);
   });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACTIONS RÉELLES DU PANNEAU  (ajout 2026-10)
+   Avant : « إضافة تلميذ », « فوج جديد », « ربط », « نشر الإعلان »,
+   « حفظ الدرس » n'étaient que des toasts de démonstration — la
+   professeure ne pouvait rien créer. Tout est maintenant branché sur
+   Firestore, avec validation et messages clairs.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── normalisation : une fiche incomplète ne casse jamais l'affichage ── */
+function stn(s){
+  return Object.assign({xp:0, streak:0, exDone:0, quizDone:0, correct:0, answered:0,
+    mastery:{}, badges:[], status:'active', level:'1AM', linked:false,
+    color:'#1E4FD8', ar:'', fr:'', group:null, parent:''}, s||{});
+}
+function lvCls(id){ const l = D.byId(D.levels, id); return l ? l.cls : 'lv-1am'; }
+/* البريد المرتبط ببطاقة التلميذ (كانت الدالة مستعملة وغير معرَّفة → خطأ عند التعديل) */
+function stMail(s){ return String((s && (s.googleEmail || s.email)) || '').trim(); }
+
+/* ── re-rendu du module courant (après une écriture réussie) ── */
+function refresh(){
+  const mn = document.querySelector('.mn') || document;
+  show(mn);
+  try{ syncTop(document); }catch(e){}
+}
+
+/* ── champ de formulaire réutilisable (modales) ── */
+function fld2(id,label,val,opt){
+  opt = opt || {};
+  const tag = opt.area ? 'textarea' : 'input';
+  const inner = opt.area
+    ? `<textarea class="inp ta" id="${id}" rows="${opt.rows||3}" ${opt.dir?'dir="ltr"':''} placeholder="${opt.ph||''}">${esc(val||'')}</textarea>`
+    : `<input class="inp" id="${id}" type="${opt.type||'text'}" ${opt.dir?'dir="ltr"':''} value="${esc(val||'')}" placeholder="${opt.ph||''}">`;
+  return `<div class="fld ${opt.mt?'mt4':''}"><label for="${id}">${label}</label>${inner}</div>`;
+}
+function sel2(id,label,opts,val){
+  return `<div class="fld"><label for="${id}">${label}</label><select class="sel" id="${id}">${
+    opts.map(o=>`<option value="${esc(o.v)}"${String(o.v)===String(val)?' selected':''}>${esc(o.l)}</option>`).join('')
+  }</select></div>`;
+}
+const valOf = id => { const e = document.getElementById(id); return e ? String(e.value||'').trim() : ''; };
+const intOf = (id,d) => { const v = parseInt(valOf(id),10); return isFinite(v) ? v : d; };
+const cardErr = (e) => window.PK.toast((e && (e.friendly || e.msg)) || t('saveErr'), 'er', 4600);
+
+/* ══════════════════ طلبات التسجيل (استمارة التلميذ بلا حساب) ══════════════════ */
+function regWhen(r){
+  if(!r || !r.at) return '—';
+  const sec = typeof r.at === 'number' ? r.at : r.at.seconds;
+  const d = sec ? new Date(sec*1000) : new Date(r.at);
+  if(isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('fr-FR') + ' · ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+function regNew(){ return (D.registrations||[]).filter(r=>r.status!=='ok').length; }
+function regCard(){
+  const n = regNew();
+  if(!n) return '';
+  return `<div class="cd rv mb5" style="border-inline-start:3px solid var(--ac)">
+    <div class="cd__h"><div>
+      <div class="cd__t">${t('adReg')} <span class="bd bd--ac la">${n}</span></div>
+      <div class="cd__s">${t('adRegS')}</div></div>
+      <a class="btn btn--p btn--sm" href="#reg" data-goto-reg>${svg('mail','width="15" height="15"')}${t('adRegOpen')}</a>
+    </div></div>`;
+}
+function registrations(){
+  const list = (D.registrations||[]).slice();
+  const rows = list.map(r=>{
+    const done = r.status === 'ok';
+    return `<tr>
+      <td><div class="who"><span class="av" style="background:${done?'#1d7874':'#1E4FD8'}">${esc(ini(String(r.name||'??')))}</span>
+        <div><b>${esc(r.name||'—')}</b>${r.school?`<small>${esc(r.school)}</small>`:''}</div></div></td>
+      <td><span class="bd bd--lv ${lvCls(r.level)}">${esc(r.level||'—')}</span></td>
+      <td class="la" dir="ltr">${esc(r.parentPhone||'—')}</td>
+      <td class="la" dir="ltr" style="font-size:.83rem">${r.email?esc(r.email):'—'}</td>
+      <td class="la" dir="ltr">${r.birth?esc(r.birth):'—'}</td>
+      <td style="max-width:240px;font-size:.83rem">${r.note?esc(r.note):'—'}</td>
+      <td class="la" style="font-size:.8rem">${esc(regWhen(r))}</td>
+      <td><span class="bd ${done?'bd--ok':'bd--wn'}">${done?t('adRegDone'):t('adRegNew')}</span></td>
+      <td><div class="acts">
+        <button class="iact" data-reg-accept="${esc(r.id)}" title="${t('adRegAccept')}">${svg('plus')}</button>
+        <button class="iact iact--er" data-reg-del="${esc(r.id)}" title="${t('del')}">${svg('trash')}</button>
+      </div></td></tr>`;
+  }).join('');
+  return `
+  <div class="cd rv mb5" style="border-inline-start:3px solid var(--ac)">
+    <div class="cd__h"><div>
+      <div class="cd__t">${t('adReg')}</div>
+      <div class="cd__s">${t('adRegS')}</div></div>
+      <div class="flex gap2 wrap-f">
+        <button class="btn btn--g btn--sm" data-reg-refresh>${svg('refresh','width="15" height="15"')}${L_('تحديث','Actualiser')}</button>
+      </div>
+    </div>
+  </div>
+  ${list.length ? `<div class="cd cd--f rv">
+    <div class="tbw"><table class="tb" style="min-width:1120px">
+      <thead><tr>
+        <th>${L_('الاسم واللقب','Nom et prénom')}</th><th>${t('stuLevel')}</th>
+        <th>${L_('هاتف الولي','Téléphone')}</th><th>${L_('البريد','E-mail')}</th>
+        <th>${L_('تاريخ الميلاد','Naissance')}</th><th>${L_('ملاحظة','Remarque')}</th>
+        <th>${L_('وصل في','Reçu le')}</th><th>${t('stuStatus')}</th><th></th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+  </div>` : `<div class="empty"><div class="ico">${svg('mail')}</div><b>${t('adRegEmpty')}</b>
+      <div class="muted mt3" style="font-size:.86rem">${t('adRegEmptyS')}</div></div>`}`;
+}
+function bindRegs(host){
+  const rf = $('[data-reg-refresh]',host);
+  if(rf) rf.addEventListener('click', async ()=>{
+    rf.disabled = true;
+    try{
+      D.registrations = await window.PKdb.listRegistrations();
+      toast(L_('تم التحديث','Actualisé'),'ok',2200);
+    }catch(e){ cardErr(e); }
+    finally{ rf.disabled = false; refresh(); }
+  });
+  $$('[data-reg-accept]',host).forEach(b=> b.addEventListener('click', ()=>{
+    const r = (D.registrations||[]).find(x=>x.id===b.dataset.regAccept);
+    if(!r) return;
+    /* البطاقة تُنشأ من النموذج (يمكن للأستاذة تعديل القسم/الفوج) */
+    openStudentForm({
+      prefill:{ ar:r.name||'', fr:r.name||'', level:r.level||'1AM', parent:r.parentPhone||'',
+                school:r.school||'', googleEmail:r.email||'' },
+      after: async (id)=>{
+        try{
+          await window.PKdb.setRegistration(r.id, {status:'ok', studentId:id||null});
+          D.registrations = await window.PKdb.listRegistrations();
+        }catch(e){ cardErr(e); }
+      }
+    });
+  }));
+  $$('[data-reg-del]',host).forEach(b=> b.addEventListener('click', async ()=>{
+    if(!window.confirm(L_('حذف هذا الطلب نهائياً؟','Supprimer définitivement cette demande ?'))) return;
+    try{
+      await window.PKdb.delRegistration(b.dataset.regDel);
+      D.registrations = (D.registrations||[]).filter(r=>r.id!==b.dataset.regDel);
+      toast(L_('حُذف الطلب','Demande supprimée'),'ok',2400);
+      refresh();
+    }catch(e){ cardErr(e); }
+  }));
+}
+
+/* ── carte « demandes en attente » (comptes Google sans fiche reliée) ── */
+function pendingCard(){
+  const list = window.PKdata.pending || [];
+  if(!list.length) return '';
+  return `<div class="cd rv mb5" style="border-inline-start:3px solid var(--wn)">
+    <div class="cd__h"><div>
+      <div class="cd__t">${t('admPending')} <span class="bd bd--wn la">${list.length}</span></div>
+      <div class="cd__s">${t('admPendingS')}</div></div>
+      <button class="btn btn--g btn--sm" data-backfill>${svg('refresh','width="15" height="15"')}${t('admBackfill')}</button>
+    </div>
+    ${list.map(u=>`<div class="mini-row">
+      <span class="av" style="background:linear-gradient(140deg,#8a93a6,#5b6472)">${esc(ini(u.name||u.email||'??'))}</span>
+      <div style="min-width:0"><b>${esc(u.name||'—')}</b>
+        <div class="muted la" dir="ltr" style="font-size:.8rem">${esc(u.email||'')}</div></div>
+      <div class="flex gap2 wrap-f" style="margin-inline-start:auto">
+        <button class="btn btn--p btn--sm" data-approve-user="${esc(u.id)}" data-mail="${esc(u.email||'')}" data-name="${esc(u.name||'')}">${svg('link','width="15" height="15"')}${t('admLink')}</button>
+        <button class="btn btn--g btn--sm" data-new-for="${esc(u.id)}" data-mail="${esc(u.email||'')}" data-name="${esc(u.name||'')}">${svg('plus','width="15" height="15"')}${t('admCreate')}</button>
+      </div></div>`).join('')}
+  </div>`;
+}
+
+/* ── formulaire élève (création / modification) ── */
+function openStudentForm(opts){
+  opts = opts || {};
+  const s  = opts.student ? stn(opts.student) : null;
+  const pf = opts.prefill || {};            /* قيم أولية (مثلاً: طلب تسجيل) */
+  const v  = (k, dflt) => s ? (s[k] == null ? dflt : s[k]) : (pf[k] == null ? dflt : pf[k]);
+  const body = `
+    <div class="g g2" style="gap:14px">
+      ${fld2('stAr', t('stuNameAr2'), v('ar',''), {ph:L_('مثال: الاسم واللقب','Ex. : Nom et prénom')})}
+      ${fld2('stFr', t('stuNameFr2'), v('fr',''), {dir:1, ph:'Ex. : Nom et prénom'})}
+      ${sel2('stLv', t('stuLv')||t('lsEdLv'), D.levels.map(l=>({v:l.id,l:L_(l.ar,l.fr)})), v('level','1AM'))}
+      ${sel2('stGrp', t('stuGroup'), [{v:'',l:'—'}].concat(D.groups.map(g=>({v:g.id,l:g.name}))), v('group',''))}
+      ${fld2('stMail', t('stuEmailG'), s?stMail(s):(pf.googleEmail||opts.email||''), {dir:1, ph:'eleve@gmail.com'})}
+      ${fld2('stPar', t('stuParent2'), v('parent',''), {dir:1, ph:'0555…'})}
+    </div>
+    ${fld2('stSchool', t('stuSchool2'), s?(s.school||''):(pf.school||''), {mt:1, ph:L_('اسم المؤسسة','Nom de l’établissement')})}
+    <p class="muted mt4" style="font-size:.82rem;line-height:1.7">${t('stuNewS')}</p>`;
+  const mo = modal(s ? t('edit') : t('stuNewT'), body,
+    `<button class="btn btn--g" data-close>${t('cancel')||'إلغاء'}</button>
+     <button class="btn btn--p" data-save>${svg('save','width="16" height="16"')}${t('save')}</button>`);
+  mo.el.querySelector('[data-save]').addEventListener('click', async ()=>{
+    const ar = valOf('stAr'), fr = valOf('stFr');
+    if(!ar && !fr){ window.PK.toast(t('needFields'),'er',3000); return; }
+    const mail = valOf('stMail').toLowerCase();
+    if(mail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)){ window.PK.toast(L_('البريد غير صالح','E-mail invalide'),'er',3000); return; }
+    const doc = {
+      ar:ar||fr, fr:fr||ar, level:valOf('stLv')||'1AM', group:valOf('stGrp')||null,
+      parent:valOf('stPar'), school:valOf('stSchool'), googleEmail:mail||null,
+      xp: s?s.xp:0, streak: s?s.streak:0, mastery: s?s.mastery:{}, badges: s?s.badges:[],
+      status: s?s.status:'active', linked: !!(mail || (s&&s.linked)),
+      color: s?s.color:'#1E4FD8'
+    };
+    try{
+      let id = s ? s.id : null;
+      if(s){ await window.PKdb.set('students', s.id, doc); }
+      else { const r = await window.PKdb.add('students', doc); id = r && r.id; }
+      if(mail && id){
+        const lk = await window.PKdb.linkStudent(mail, id);
+        if(!lk.ok) window.PK.toast(lk.msg||t('linkErr'),'wn',4200);
+      }
+      window.PK.toast(t('studentSaved'),'ok',2600);
+      mo.close();
+      if(opts.after){ try{ await opts.after(id, doc); }catch(e){ if(window.console) console.warn('[PK] after():', e); } }
+      refresh();
+    }catch(e){ cardErr(e); }
+  });
+}
+
+/* ── formulaire groupe / séance ── */
+function openGroupForm(g){
+  const DAYS_L = Object.keys(DAYS).map(k=>({v:k, l:DAYS[k][ar()?0:1]}));
+  const body = `
+    <div class="g g2" style="gap:14px">
+      ${fld2('gName', t('grpNameF'), g?g.name:'', {ph:'G1 · 4AM'})}
+      ${sel2('gLv', t('lsEdLv'), D.levels.map(l=>({v:l.id,l:l.id+' — '+L_(l.ar,l.fr)})), g?g.level:'4AM')}
+      ${sel2('gDay', t('grpDay'), DAYS_L, g?g.day:'sat')}
+      ${fld2('gRoom', t('grpRoom'), g?g.room:'', {ph:'Salle 1'})}
+      ${fld2('gStart', t('grpStart'), g?g.start:'14:00', {dir:1, type:'time'})}
+      ${fld2('gEnd', t('grpEnd'), g?g.end:'15:30', {dir:1, type:'time'})}
+      ${fld2('gCap', t('grpCap2'), g?g.capacity:18, {dir:1, type:'number'})}
+      ${fld2('gTeach', t('grpTeacher'), g?g.teacher:(D.settings.teacherNameFr||'Prof. Kerdjidj'), {dir:1})}
+      ${fld2('gSchool', t('grpSchool2'), g?L_(g.schoolAr,g.schoolFr):(D.settings.city||''), {mt:0})}
+    </div>`;
+  const mo = modal(g ? t('edit') : t('grNew'), body,
+    `<button class="btn btn--g" data-close>${t('cancel')||'إلغاء'}</button>
+     <button class="btn btn--p" data-save>${svg('save','width="16" height="16"')}${t('save')}</button>`);
+  mo.el.querySelector('[data-save]').addEventListener('click', async ()=>{
+    const name = valOf('gName'), lv = valOf('gLv') || '1AM';
+    if(!name){ window.PK.toast(t('needFields'),'er',3000); return; }
+    const school = valOf('gSchool');
+    const doc = {
+      name, level:lv, day:valOf('gDay')||'sat',
+      start:valOf('gStart')||'14:00', end:valOf('gEnd')||'15:30',
+      room:valOf('gRoom'), teacher:valOf('gTeach'),
+      schoolAr:school, schoolFr:school,
+      capacity:intOf('gCap',18), enrolled: g?(g.enrolled||0):0,
+      cls:lvCls(lv)
+    };
+    try{
+      if(g) await window.PKdb.set('groups', g.id, doc);
+      else  await window.PKdb.add('groups', doc);
+      window.PK.toast(t('grpSaved'),'ok',2600);
+      mo.close(); refresh();
+    }catch(e){ cardErr(e); }
+  });
+}
+
+/* ── liaison e-mail ↔ fiche (et confirmation d'un compte en attente) ── */
+function openLinkDialog(opts){
+  opts = opts || {};
+  const body = `
+    ${fld2('lkMail', t('stuLinkE'), opts.email||'', {dir:1, ph:'eleve@gmail.com'})}
+    ${sel2('lkStu', L_('البطاقة','Fiche'),
+        [{v:'',l:'— '+t('empty')+' —'}].concat(D.students.map(stn).map(s=>({v:s.id,l:(L_(s.ar,s.fr)||s.id)+' — '+s.level+(stMail(s)?' ('+stMail(s)+')':'')}))),
+        opts.studentId||'')}
+    <p class="muted mt4" style="font-size:.82rem;line-height:1.7">${t('stuLinkS')}</p>`;
+  const mo = modal(t('stuLink'), body,
+    `<button class="btn btn--g" data-close>${t('cancel')||'إلغاء'}</button>
+     <button class="btn btn--p" data-save>${svg('link','width="16" height="16"')}${t('stuLinkGo')}</button>`);
+  mo.el.querySelector('[data-save]').addEventListener('click', async ()=>{
+    const mail = valOf('lkMail').toLowerCase(), sid = valOf('lkStu');
+    if(!mail || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)){ window.PK.toast(L_('البريد غير صالح','E-mail invalide'),'er',3000); return; }
+    if(!sid){ window.PK.toast(t('fillNameFirst'),'er',3000); return; }
+    try{
+      const r = await window.PKdb.linkStudent(mail, sid);
+      if(!r.ok){ window.PK.toast(r.msg||t('linkErr'),'er',4600); return; }
+      /* confirmer aussi le compte en attente, s'il existe */
+      if(opts.uid){
+        const a = await window.PKdb.approveUser(opts.uid, sid);
+        if(!a.ok){ window.PK.toast(a.msg||t('linkErr'),'wn',4600); }
+        else window.PK.toast(t('admApproved'),'ok',2600);
+        window.PKdata.pending = (window.PKdata.pending||[]).filter(u=>u.id!==opts.uid);
+      }
+      const s = D.students.find(x=>x.id===sid); if(s){ s.googleEmail = mail; s.linked = true; }
+      window.PK.toast(t('linkOk'),'ok',2600);
+      mo.close(); refresh();
+    }catch(e){ cardErr(e); }
+  });
+}
+
+/* ── éditeur de cours : barre d'outils + enregistrement réel ── */
+function bindLessonEditor(p){
+  const body = p.querySelector('#lsBody');
+  $$('.ed__b', p).forEach(b=> b.addEventListener('click', ()=>{
+    if(!body) return;
+    body.focus();
+    const k = b.dataset.ed;
+    try{
+      if(k==='h') document.execCommand('formatBlock', false, 'H3');
+      else if(k==='quote') document.execCommand('formatBlock', false, 'BLOCKQUOTE');
+      else if(k==='code') document.execCommand('formatBlock', false, 'PRE');
+      else if(k==='link'){ const u = prompt('https://…'); if(u) document.execCommand('createLink', false, u); }
+      else if(k==='img'){ const u = prompt('https://… (image)'); if(u) document.execCommand('insertImage', false, u); }
+      else document.execCommand(k);
+    }catch(e){ /* navigateur sans execCommand : le HTML reste éditable à la main */ }
+  }));
+  const collect = (pub)=>({
+    ar: valOf('lsAr'), fr: valOf('lsFr') || valOf('lsAr'),
+    titleAr: valOf('lsAr'), titleFr: valOf('lsFr') || valOf('lsAr'),
+    level: valOf('lsLv') || '1AM', ax: valOf('lsAx') || 'grammaire',
+    sumAr: valOf('lsSumAr'), sumFr: valOf('lsSumFr'),
+    min: intOf('lsMin',20), xp: intOf('lsXp',25),
+    content: body ? body.innerHTML : '',
+    published: !!pub, isNew: !!pub, files: 0
+  });
+  const save = async (pub)=>{
+    const id = valOf('lsId');
+    const doc = collect(pub);
+    if(!doc.ar){ window.PK.toast(t('lsNeedTitle'),'er',3200); return; }
+    try{
+      if(id) await window.PKdb.set('lessons', id, doc);
+      else   await window.PKdb.add('lessons', doc);
+      window.PK.toast(pub ? t('lsPublished') : t('lsSaved'),'ok',3000);
+      refresh();
+    }catch(e){ cardErr(e); }
+  };
+  const sv=$('[data-ls-save]',p); if(sv) sv.addEventListener('click', ()=>save(false));
+  const pb=$('[data-ls-pub]',p);  if(pb) pb.addEventListener('click', ()=>save(true));
+  /* « درس جديد » : vide l'éditeur et remonte jusqu'à lui */
+  $$('a[href^="index.html#lessons"], [data-add-lesson]',p).forEach(()=>{});
+}
+function openLessonEditor(id){
+  const l = D.lessons.find(x=>x.id===id);
+  if(!l) return;
+  const setV=(k,v)=>{ const e=document.getElementById(k); if(e) e.value = v==null?'':v; };
+  setV('lsId', l.id); setV('lsAr', l.ar||l.titleAr||''); setV('lsFr', l.fr||l.titleFr||'');
+  setV('lsLv', l.level||'1AM'); setV('lsAx', l.ax||'grammaire');
+  setV('lsSumAr', l.sumAr||''); setV('lsSumFr', l.sumFr||'');
+  setV('lsMin', l.min||20); setV('lsXp', l.xp||25);
+  const b = document.getElementById('lsBody'); if(b) b.innerHTML = l.content||'';
+  const host = document.getElementById('lsBody');
+  if(host) host.scrollIntoView({behavior:'smooth', block:'center'});
+  window.PK.toast(t('lsEditLoad'),'info',2600);
+}
+function newLesson(){
+  ['lsId','lsAr','lsFr','lsSumAr','lsSumFr'].forEach(k=>{ const e=document.getElementById(k); if(e) e.value=''; });
+  const b = document.getElementById('lsBody'); if(b) b.innerHTML='';
+  const h = document.getElementById('lsBody'); if(h) h.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
 window.PKapp.bootApp('admin','index.html'+location.hash,{top:false},render);

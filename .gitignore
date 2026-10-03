@@ -1,0 +1,6 @@
+# ملفات مؤقتة لا يجب رفعها إلى GitHub ولا نشرها على الموقع
+node_modules/
+tests/node_modules/
+*.zip
+.DS_Store
+Thumbs.db

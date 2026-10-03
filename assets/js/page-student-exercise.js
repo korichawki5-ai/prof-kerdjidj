@@ -29,6 +29,9 @@ function renderBrief(mn){
   if(!D.exercises.length){ mn.innerHTML = `<div class="empty"><div class="ico">${svg('quiz')}</div><b>${t('noExercises')}</b></div>`; syncTop(mn); return; }
   EX = getExercise();
   const lv = D.byId(D.levels, EX.level), ax = D.axes.find(a=>a.id===EX.ax)||{fr:EX.ax,ar:EX.ax};
+  EX.questions = Array.isArray(EX.questions) ? EX.questions : [];
+  EX.diff = EX.diff || 1; EX.min = EX.min || 10; EX.xpMax = EX.xpMax || 0; EX.tries = EX.tries || 3;
+  EX.type = EX.type || 'quiz';
   mn.innerHTML = `
   <div class="mn__t">
     <div>
@@ -43,7 +46,7 @@ function renderBrief(mn){
     </div>
   </div>
 
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main adm-split" style="--adm-side:340px">
     <div class="qz rv">
       <div class="qz__hd">
         <div class="qz__meta">
@@ -167,7 +170,7 @@ function renderQuestion(mn){
           </div>
         </div>
         ${opts
-          ? `<div class="qn__x" ${opts.length<=2?'style="grid-template-columns:repeat(2,1fr)"':''}>
+          ? `<div class="qn__x">
                ${opts.map(([i,label])=>`<button class="qo" data-i="${i}"><i>${'ABCD'[i]}</i><span dir="ltr">${label}</span></button>`).join('')}
              </div>`
           : `<div class="fld"><label>${L_('اكتب الإجابة','Écrivez la réponse')}</label>
@@ -255,9 +258,9 @@ function finish(mn){
   const msg = pct>=90 ? t('exPerfect') : pct>=60 ? t('exGood') : t('exKeep');
   const col = pct>=80?'var(--ok)':pct>=50?'var(--wn)':'var(--er)';
 
-  // progression de maîtrise simulée pour la démo
-  const before = D.me.mastery[EX.ax] || 0;
-  const after  = Math.min(100, Math.round(before + (pct-before)*0.12));
+  /* إتقان المحور: قاعدة حقيقية واحدة (تُطبَّق محلياً وعلى Firestore) */
+  const before = (D.me.mastery && D.me.mastery[EX.ax]) || 0;
+  const after  = Math.max(before, pct);
 
   mn.innerHTML = `
   <div class="qz rv-s" style="max-width:820px;margin-inline:auto">
@@ -304,12 +307,20 @@ function finish(mn){
 
   <div class="cd mt5 rv" style="max-width:820px;margin-inline:auto" id="reviewBox"></div>`;
 
-  // enregistre (démo : console + Firestore si configuré)
-  window.PKdb.saveSubmission({
-    exerciseId:EX.id, studentId:D.me.id, level:EX.level, ax:EX.ax,
-    correct, total, pct, xp:r.xp, durationSec:used, attempts:1,
-    answers: EX.questions.map((q,i)=>({q:i, given:answers[i], ok:!!answers[i]}))
-  });
+  /* الحفظ: تلميذ بلا حساب → على جهازه (نتيجته الحقيقية) ؛ حساب قديم → Firestore */
+  if(window.PKlocal && window.PKlocal.active()){
+    window.PKlocal.logSubmission({
+      exerciseId:EX.id, level:EX.level, axis:EX.ax, type:EX.ax,
+      correct, total, pct, xp:r.xp, durationSec:used, timeLimit:EX.min*60, isQuiz:true
+    });
+    D.me = window.PKlocal.me();
+  } else if(D.me && D.me.id){
+    window.PKdb.saveSubmission({
+      exerciseId:EX.id, studentId:D.me.id, level:EX.level, ax:EX.ax,
+      correct, total, pct, xp:r.xp, durationSec:used, attempts:1,
+      answers: EX.questions.map((q,i)=>({q:i, given:answers[i], ok:!!answers[i]}))
+    });
+  }
   if(pct>=80) confetti(pct>=95?110:70);
   toast(`${t('exGain')} : +${r.xp} XP · ${pct}%`, pct>=80?'ok':'wn', 4200);
 

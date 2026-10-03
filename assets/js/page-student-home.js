@@ -17,8 +17,16 @@ const AXAR = {grammaire:'القواعد',conjugaison:'تصريف الأفعال'
               comprehension:'فهم النص',expression:'التعبير الكتابي',oral:'التعبير الشفوي',
               methodology:'منهجية BEM',sujets:'مواضيع محلولة'};
 
-/* ── somme de contrôle pour des données de démo stables ── */
-function hash(str){ let h=2166136261; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619);} return Math.abs(h); }
+/* ── affichage sûr : une donnée absente ne doit JAMAIS écrire « undefined » ── */
+const nun = (v, d) => (typeof v === 'number' && !isNaN(v)) ? v : (d === undefined ? '—' : d);
+const exQn = x => (typeof x.q === 'number') ? x.q
+                 : (Array.isArray(x.questions) ? x.questions.length : '—');
+/* ── échappement + lecture des annonces réelles (aucune donnée inventée) ── */
+const esc = v => (window.PK && window.PK.esc) ? window.PK.esc(v) : String(v==null?'':v);
+function annTitle(a){ const c=(a.i18n&&typeof a.i18n==='object')?a.i18n:null;
+  return L_(c&&c.ar,c&&c.fr)||L_(a.titleAr,a.titleFr)||L_('إعلان','Annonce'); }
+function annBody(a){ const c=(a.i18n&&typeof a.i18n==='object')?a.i18n:null;
+  return L_(c&&c.bodyAr,c&&c.bodyFr)||L_(c&&c.arBody,c&&c.frBody)||L_(a.bodyAr,a.bodyFr)||L_(a.arBody,a.frBody)||''; }
 
 /* ══════════ RENDU ══════════ */
 function render(mn){
@@ -29,46 +37,44 @@ function render(mn){
   const grp = D.groupOf(s.group) || {};
 
   /* — KPI — */
+  /* Aucune variation inventée : on n'affiche que les valeurs RÉELLES.
+     (Avant : « +340 », « +4 % », « +3 h »… étaient écrits en dur.) */
   const kpis = [
-    {n:sum.xp.toLocaleString('fr-FR'), l:t('k1'), ic:'bolt', cls:'', d:'+340', dc:'var(--ok)'},
+    {n:sum.xp.toLocaleString('fr-FR'), l:t('k1'), ic:'bolt', cls:'', d:'', dc:''},
     {n:sum.streak, l:t('k2'), ic:'flame', cls:'ico--wn', d:'×'+X.streakMult(sum.streak).toFixed(2), dc:'var(--wn)'},
-    {n:sum.globalMastery+'<small>%</small>', l:t('k3'), ic:'target', cls:'ico--ok', d:'+4%', dc:'var(--ok)'},
-    {n:sum.lessonsDone, l:t('k4'), ic:'book', cls:'ico--pu', d:'+2', dc:'var(--pu)'},
-    {n:sum.exDone, l:t('k5'), ic:'quiz', cls:'ico--cy', d:'+5', dc:'var(--cy)'},
+    {n:sum.globalMastery+'<small>%</small>', l:t('k3'), ic:'target', cls:'ico--ok', d:'', dc:''},
+    {n:sum.lessonsDone, l:t('k4'), ic:'book', cls:'ico--pu', d:'', dc:''},
+    {n:sum.exDone, l:t('k5'), ic:'quiz', cls:'ico--cy', d:'', dc:''},
     {n:sum.accuracy+'<small>%</small>', l:t('k7'), ic:'checkc', cls:'ico--ok', d:'', dc:''},
-    {n:sum.badges.length, l:t('k6'), ic:'trophy', cls:'ico--wn', d:'+1', dc:'var(--wn)'},
-    {n:Math.round(sum.minutes/60)+'<small>h</small>', l:t('k8'), ic:'timer', cls:'', d:'+3h', dc:'var(--ok)'}
+    {n:sum.badges.length, l:t('k6'), ic:'trophy', cls:'ico--wn', d:'', dc:''},
+    {n:Math.round(sum.minutes/60)+'<small>h</small>', l:t('k8'), ic:'timer', cls:'', d:'', dc:''}
   ];
 
   /* — badge de rang — */
   const rp = sum.rankProgress;
   const rankIc = sum.rank.icon;
 
-  /* — prochaine séance — */
-  const next = D.groups.find(g=>g.id===s.group) || {};
+  /* — prochaine séance — (peut être vide : élève pas encore rattaché) */
+  const next = D.groups.find(g=>g.id===s.group) || null;
+  const nextLv = next ? D.byId(D.levels, next.level) : null;
 
   /* — exercices suggérés — */
   const lv = s.role==='admin' ? null : s.level;
   const sugg = (lv? D.exercises.filter(e=>e.level===lv):D.exercises).slice(0,3);
 
+  /* — annonce épinglée (réelle) — */
+  const pin = [...(D.announcements||[])].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0))[0] || null;
+
   /* — dernières leçons — */
   const ls = (lv? D.lessons.filter(l=>l.level===lv):D.lessons).slice(0,4);
 
-  /* — activité récente — */
-  const acts = [
-    {ic:'quiz', cls:'', ar:`أنهيتَ تمرين <b>الضمائر الموصولة</b> بـ 12/14 · <b>+180 XP</b>`,
-                 fr:`Tu as terminé <b>Les pronoms relatifs</b> : 12/14 · <b>+180 XP</b>`, when:'2 h'},
-    {ic:'book', cls:'ico--pu', ar:`أكملتَ درس <b>Le passé composé</b> · <b>+25 XP</b>`,
-                 fr:`Cours <b>Le passé composé</b> terminé · <b>+25 XP</b>`, when:'5 h'},
-    {ic:'trophy', cls:'ico--wn', ar:`وسام جديد: <b>خبير القواعد</b> 🏅`, fr:`Nouveau badge : <b>Expert en grammaire</b> 🏅`, when:'1 j'},
-    {ic:'flame', cls:'ico--er', ar:`سلسلة <b>9 أيام</b> متتالية — مضاعف ×1.5 مفعّل 🔥`, fr:`Série de <b>9 jours</b> — multiplicateur ×1.5 actif 🔥`, when:'1 j'},
-    {ic:'target', cls:'ico--ok', ar:`إتقان <b>Conjugaison</b> ارتفع إلى 88%`, fr:`Maîtrise de <b>Conjugaison</b> : 88%`, when:'2 j'}
-  ];
+  /* — prénom affiché (sûr : le nom vient du compte Google) — */
+  const first = String(ar() ? (s.ar||s.fr||'') : (s.fr||s.ar||'')).split(' ')[0];
 
   mn.innerHTML = `
   <div class="mn__t">
     <div>
-      <h1>${t('stHello')} ${ar()?s.ar:s.fr.split(' ')[0]} 👋</h1>
+      <h1>${t('stHello')} ${esc(first)} 👋</h1>
       <p data-i18n="stSub">${t('stSub')}</p>
     </div>
     <div class="mn__a">
@@ -82,7 +88,7 @@ function render(mn){
   </div>
 
   <!-- ── KPI ── -->
-  <div class="kpis cas" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis cas">
     ${kpis.map(k=>`
       <div class="kpi${k.cls===''&&k.ic==='bolt'?' kpi--xp':''} rv">
         <div class="kpi__t">
@@ -95,7 +101,7 @@ function render(mn){
   </div>
 
   <!-- ── XP + SÉRIE ── -->
-  <div class="g g2 mb5" style="grid-template-columns:1.55fr 1fr">
+  <div class="g g2 mb5 adm-2-1">
     <div class="xpbar rv">
       <div class="xpbar__h">
         <div class="xpbar__lv">
@@ -120,8 +126,13 @@ function render(mn){
         <div class="stk__f">${svg('flame','fill="currentColor" stroke="none"')}</div>
         <div><div class="stk__n la">${sum.streak}</div><div class="stk__l">${t('daysInRow')}</div></div>
         <div class="stk__w">
-          ${['sat','sun','mon','tue','wed','thu','sun'].map((d,i)=>`
-            <span class="stk__d${i<6?' on':''}${i===6?' now':''}">${svg(i<6?'check':'clock','width="13" height="13"')}<span>${DAYS[d][ar()?0:1].slice(0,3)}</span></span>`).join('')}
+          ${[6,5,4,3,2,1,0].map((back)=>{
+            const dt = new Date(Date.now() - back*864e5);
+            const key = ['sun','mon','tue','wed','thu','fri','sat'][dt.getDay()];
+            const nm = DAYS[key] || ['—','—'];
+            const on = (sum.streak||0) > back;    /* série réelle, pas de faux jours */
+            return `<span class="stk__d${on?' on':''}${back===0?' now':''}">${svg(on?'check':'clock','width="13" height="13"')}<span>${L_(nm[0],nm[1]).slice(0,3)}</span></span>`;
+          }).join('')}
         </div>
       </div>
       <div class="mt4 flex just-b" style="font-size:.85rem">
@@ -134,7 +145,7 @@ function render(mn){
   </div>
 
   <!-- ── CORPS ── -->
-  <div class="g g-main" style="grid-template-columns:1fr 340px;align-items:start">
+  <div class="g g-main adm-split" style="--adm-side:340px">
     <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
 
       <!-- exercices suggérés -->
@@ -151,11 +162,11 @@ function render(mn){
               <span class="ico">${svg('quiz')}</span>
               <div class="itm__b">
                 <b>${L_(x.titleAr,x.titleFr)}</b>
-                <small><span class="la">${x.q} ${t('exQ')}</span> · <span class="la">${x.min} min</span> · ${L_(ax.ar,ax.fr)}
-                  · <span class="diff diff--${x.diff}"><i class="on"></i><i class="${x.diff>=2?'on':''}"></i><i class="${x.diff>=3?'on':''}"></i></span></small>
+                <small><span class="la">${exQn(x)} ${t('exQ')}</span> · <span class="la">${nun(x.min)} min</span> · ${L_(ax.ar,ax.fr)}
+                  · <span class="diff diff--${nun(x.diff,1)}"><i class="on"></i><i class="${(x.diff||1)>=2?'on':''}"></i><i class="${(x.diff||1)>=3?'on':''}"></i></span></small>
               </div>
               <div class="itm__s">
-                <span class="pill-xp">${svg('bolt','width="13" height="13"')}≤${x.xpMax}</span>
+                <span class="pill-xp">${svg('bolt','width="13" height="13"')}≤${nun(x.xpMax,0)}</span>
                 <a class="btn btn--p btn--sm" href="exercise.html?id=${x.id}">${t('exStart')}</a>
               </div>
             </div>`;}).join('')}
@@ -174,10 +185,10 @@ function render(mn){
             return `<div class="itm ${x.done?'itm--done':''}">
               <span class="ico ico--sm ${x.done?'ico--ok':''}">${svg(x.done?'check':(x.icon||ax.icon))}</span>
               <div class="itm__b"><b>${L_(x.ar,x.fr)}</b>
-                <small>${svg('clock','width="13" height="13"')}<span class="la">${x.min} ${t('lsMin')}</span> · ${ax.fr}
+                <small>${svg('clock','width="13" height="13"')}<span class="la">${nun(x.min)} ${t('lsMin')}</span> · ${ax.fr}
                   ${x.files?` · ${svg('file','width="13" height="13"')}<span class="la">${x.files}</span>`:''}</small></div>
               <div class="itm__s">
-                <span class="pill-xp">${svg('bolt','width="13" height="13"')}+${x.xp}</span>
+                <span class="pill-xp">${svg('bolt','width="13" height="13"')}+${nun(x.xp,0)}</span>
                 <a class="btn btn--g btn--sm" href="lesson.html?id=${x.id}">${x.done?t('exReview'):t('lsStart')}</a>
               </div>
             </div>`;}).join('')}
@@ -202,16 +213,19 @@ function render(mn){
       <div class="cd rv" style="background:linear-gradient(140deg,var(--ac-dd),var(--ac) 62%,var(--ac-2));border:0;color:#fff;padding:24px">
         <div class="flex items-c gap2" style="font-size:.78rem;font-weight:800;opacity:.85;margin-block-end:14px">
           ${svg('clock','width="15" height="15"')}<span data-i18n="nextSes">${t('nextSes')}</span></div>
-        <div class="la" style="font-size:1.8rem;font-weight:800;line-height:1.1">${DAYS[next.day||'sat'][ar()?1:1]}</div>
-        <div class="la" style="font-size:1.1rem;opacity:.9;margin-block-start:4px">${next.start} – ${next.end}</div>
+        ${next ? `
+        <div class="la" style="font-size:1.8rem;font-weight:800;line-height:1.1">${esc(L_(DAYS[next.day]?DAYS[next.day][0]:'', DAYS[next.day]?DAYS[next.day][1]:''))}</div>
+        <div class="la" style="font-size:1.1rem;opacity:.9;margin-block-start:4px">${esc(next.start||'')} – ${esc(next.end||'')}</div>
         <div style="margin-block-start:16px;padding-block-start:14px;border-block-start:1px solid rgba(255,255,255,.24);font-size:.88rem">
-          <b>${next.name}</b> · ${L_(D.byId(D.levels,next.level).ar, D.byId(D.levels,next.level).fr)}
+          <b>${esc(next.name||'')}</b>${nextLv?` · ${esc(L_(nextLv.ar,nextLv.fr))}`:''}
         </div>
         <div style="font-size:.83rem;opacity:.86;margin-block-start:5px;display:flex;align-items:center;gap:7px">
-          ${svg('school','width="14" height="14"')}${L_(next.schoolAr,next.schoolFr)}</div>
+          ${svg('school','width="14" height="14"')}${esc(L_(next.schoolAr,next.schoolFr)||'')}</div>
         <div style="font-size:.83rem;opacity:.86;margin-block-start:4px;display:flex;align-items:center;gap:7px">
-          ${svg('user','width="14" height="14"')}${next.teacher} · ${t(next.mode==='onsite'?'onsite':'online')}</div>
-        <div class="mt4" id="cdNext"></div>
+          ${svg('user','width="14" height="14"')}${esc(next.teacher||'')} · ${t(next.mode==='onsite'?'onsite':'online')}</div>
+        <div class="mt4" id="cdNext"></div>`
+        : `<div style="font-size:.95rem;line-height:1.9;opacity:.94">${t('pendingTitle')}</div>
+           <div style="font-size:.85rem;opacity:.85;margin-block-start:8px;line-height:1.8">${t('pendingSub')}</div>`}
       </div>
 
       <!-- maîtrise par axe -->
@@ -239,13 +253,13 @@ function render(mn){
         <a href="progress.html" class="btn btn--g btn--sm btn--blk mt4">${t('seeAll')}</a>
       </div>
 
-      <!-- annonces -->
-      <div class="cd rv" style="--d:200ms;border-color:var(--wn);background:var(--wn-t)">
+      <!-- annonce épinglée RÉELLE (masquée s'il n'y en a aucune) -->
+      ${pin ? `<div class="cd rv" style="--d:200ms;border-color:var(--wn);background:var(--wn-t)">
         <div class="flex items-c gap2" style="color:var(--wn);font-weight:800;font-size:.9rem;margin-block-end:11px">
-          ${svg('bell','width="17" height="17"')}<span data-i18n="annPinned">${t('annPinned')}</span></div>
-        <p style="font-size:.9rem;line-height:1.8" data-i18n="ann1" data-i18n-html>${t('ann1')}</p>
-        <div class="la faint mt3" style="font-size:.76rem">2025-09-28 · Prof. Kerdjidj</div>
-      </div>
+          ${svg('bell','width="17" height="17"')}<span>${pin.pinned?t('annPinned'):t('sbAnn')}</span></div>
+        <p style="font-size:.9rem;line-height:1.8">${esc(annBody(pin))}</p>
+        <div class="la faint mt3" style="font-size:.76rem">${esc(pin.date||'')} · ${esc((D.settings.teacherNameFr)||'Prof. Kerdjidj')}</div>
+      </div>` : ''}
     </div>
   </div>`;
 
@@ -263,16 +277,19 @@ function render(mn){
 
 /* ── heatmap d'activité ── */
 function renderHeatmap(s){
+  /* كل مربّع هنا = يوم نشاط حقيقي: إما من سجلّ الأيام الفعلي (تلميذ
+     مسجَّل على جهازه) أو من السلسلة الحالية. لا توليد بالهاش ولا بيانات وهمية. */
   const host = $('#hm'); if(!host) return;
-  const h = hash(s.id);
+  const log = Array.isArray(s.log) && s.log.length ? new Set(s.log) : null;
+  const streak = Math.max(0, Math.min(126, s.streak||0));
   let out='';
   for(let w=17; w>=0; w--){
     for(let d=0; d<7; d++){
-      const idx = (17-w)*7 + d;
-      const v = ((h >> (idx % 20)) & 7) + (idx % 3);
-      const lvl = idx>100 ? Math.min(4, Math.floor(v/2.2)) : 0;
-      const date = new Date(Date.now() - (w*7 + (6-d))*864e5);
-      out += `<i data-l="${lvl}" title="${date.toISOString().slice(0,10)} · ${lvl*35} XP"></i>`;
+      const back = w*7 + (6-d);
+      const date = new Date(Date.now() - back*864e5);
+      const key = date.toISOString().slice(0,10);
+      const on = log ? log.has(key) : (back < streak);
+      out += `<i data-l="${on?3:0}" title="${key}${on?' ✓':''}"></i>`;
     }
   }
   host.innerHTML = out;
@@ -290,11 +307,13 @@ function renderMiniBadges(sum){
 }
 
 /* ── compte à rebours vers la prochaine séance ── */
+let _cdTimer = null;
 function startCountdown(g){
   const host = $('#cdNext'); if(!host || !g || !g.day) return;
+  if(_cdTimer){ clearInterval(_cdTimer); _cdTimer = null; }   /* pas d'intervalles empilés */
   const order = ['sun','mon','tue','wed','thu','fri','sat'];
   const target = order.indexOf(g.day);
-  const [hh,mm] = g.start.split(':').map(Number);
+  const [hh,mm] = String(g.start||'00:00').split(':').map(Number);
   function tick(){
     const now = new Date();
     const d = new Date(now);
@@ -311,7 +330,8 @@ function startCountdown(g){
         </div>`).join('')}
     </div>`;
   }
-  tick(); setInterval(tick, 1000);
+  tick();
+  _cdTimer = setInterval(tick, 1000);
 }
 
 /* ── amorçage ── */

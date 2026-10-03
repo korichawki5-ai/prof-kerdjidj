@@ -95,3 +95,39 @@
   .hd__t #pkSearch{display:none}
   .nv.open{padding-block-start:74px}
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   GRILLES RESPONSIVES PARTAGÉES  (ajout 2026-10)
+   ──────────────────────────────────────────────────────────────────
+   Cause du bug « page admin cassée sur téléphone » :
+   des grilles écrites en style="grid-template-columns:…" dans le HTML
+   généré par JS ne peuvent PAS être surchargées par les media queries
+   (l'inline gagne toujours). On les remplace par ces classes : rendu
+   desktop identique, points de rupture rétablis.
+   ══════════════════════════════════════════════════════════════════ */
+.adm-split{display:grid;gap:var(--sp5);align-items:start;grid-template-columns:1fr var(--adm-side,340px)}
+.adm-split--rev{grid-template-columns:var(--adm-side,340px) 1fr}
+.adm-2-1{grid-template-columns:1.55fr 1fr}
+.kpis--2{grid-template-columns:repeat(2,1fr)}
+.bdgrid--3{grid-template-columns:repeat(3,1fr)}
+.pub-hd{grid-template-columns:1fr auto}
+
+@media (max-width:1240px){
+  .adm-split,.adm-split--rev{grid-template-columns:1fr}
+}
+@media (max-width:1024px){
+  .adm-2-1{grid-template-columns:1fr}
+  .bdgrid--3{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:760px){
+  .adm-split,.adm-split--rev,.adm-2-1,.kpis--2,.bdgrid--3,.pub-hd{grid-template-columns:1fr}
+
+  /* ── confort tactile : cibles ≥ 48px et champs ≥ 16px (anti-zoom iOS) ── */
+  .btn--i{width:48px;height:48px}
+  .iact{width:44px;height:44px}
+  input,select,textarea,.inp,.sel,.txa{font-size:16px}
+
+  /* ── anti-débordement horizontal : les textes longs se replient ── */
+  .msg__s,.msg__p,.who small,.cinfo p,.gate__s{overflow-wrap:anywhere}
+  .cd,.kpi{min-width:0}
+}

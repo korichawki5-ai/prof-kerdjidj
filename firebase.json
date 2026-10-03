@@ -3,12 +3,15 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      "**/*.zip",
       "**/.*",
       "**/node_modules/**",
       "tests/**",
       "README.md",
       "SETUP-AR.md",
       "QUICKSTART-AR.md",
+      "FIXES.md",
+      "README-NASHR.md",
       "deploy.sh",
       "deploy.bat",
       "plan/**"
@@ -21,7 +24,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
+            "value": "public, max-age=0, must-revalidate"
           }
         ]
       },

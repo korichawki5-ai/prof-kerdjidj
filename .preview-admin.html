@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<!-- ══════════════════════════════════════════════════════════════════
+     APERÇU HORS-LIGNE DU PANNEAU ADMINISTRATION  (fichier de travail)
+     Sert uniquement à vérifier la mise en page (surtout MOBILE) sans
+     toucher aux données réelles : mode test + contenu d'exemple.
+     Ce fichier commence par un point → il n'est PAS publié par
+     firebase deploy (règle d'ignore « **/.* ») et peut être supprimé.
+     ══════════════════════════════════════════════════════════════════ -->
+<html lang="ar" dir="rtl" data-theme="light" data-page="admin">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>معاينة لوحة الإدارة (تجريبية)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%230E1B3D'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/00-tokens.css?v=5">
+<link rel="stylesheet" href="assets/css/01-base.css?v=5">
+<link rel="stylesheet" href="assets/css/02-components.css?v=5">
+<link rel="stylesheet" href="assets/css/03-layout.css?v=5">
+<link rel="stylesheet" href="assets/css/04-sections.css?v=5">
+<link rel="stylesheet" href="assets/css/05-app.css?v=5">
+<link rel="stylesheet" href="assets/css/06-animations.css?v=5">
+<link rel="stylesheet" href="assets/css/07-responsive.css?v=5">
+<script>
+/* mode test : aucune connexion à Firestore, contenu d'exemple */
+window.__PK_TEST__ = true;
+window.__PK_SEED__ = {
+  /* compte « professeure » : sans lui, le panneau affiche la porte de connexion
+     (comportement voulu depuis le correctif « دخول الأستاذة ») */
+  me: { id:'a1', uid:'a1', role:'admin', email:'prof@example.com', ar:'الأستاذة كرجيج', fr:'Prof. Kerdjidj',
+        level:null, xp:0, streak:0, best:0, lessonsDone:0, exDone:0, quizDone:0, correct:0, answered:0,
+        minutes:0, mastery:{}, badges:[], doneIds:[], group:null, school:null, linked:false },
+  groups: [
+    {id:'g1', name:'G1 · 4AM', level:'4AM', day:'sat', start:'14:00', end:'15:30', room:'قاعة 1',
+     teacher:'Prof. Kerdjidj', schoolAr:'متوسطة خميس مليانة', schoolFr:'CEM Khemis Miliana',
+     capacity:18, enrolled:12, cls:'lv-4am'},
+    {id:'g2', name:'G2 · 3AM', level:'3AM', day:'mon', start:'16:00', end:'17:30', room:'قاعة 2',
+     teacher:'Prof. Kerdjidj', schoolAr:'متوسطة خميس مليانة', schoolFr:'CEM Khemis Miliana',
+     capacity:20, enrolled:9, cls:'lv-3am'}
+  ],
+  students: [
+    {id:'s1', ar:'أمين بلقاسم', fr:'Amine Belkacem', level:'4AM', group:'g1', parent:'0555 11 22 33',
+     xp:1450, streak:6, exDone:24, correct:180, answered:220, mastery:{grammaire:82,conjugaison:70},
+     badges:['b1','b2'], status:'active', linked:true, googleEmail:'amine@example.com', color:'#1E4FD8'},
+    {id:'s2', ar:'سعاد مرابط', fr:'Souad Merabet', level:'4AM', group:'g1', parent:'0666 44 55 66',
+     xp:980, streak:3, exDone:15, correct:120, answered:160, mastery:{grammaire:64,vocabulaire:55},
+     badges:['b1'], status:'active', linked:false, color:'#0FA97C'},
+    {id:'s3', ar:'يوسف حمداني', fr:'Youcef Hamdani', level:'3AM', group:'g2', parent:'0777 88 99 00',
+     xp:2150, streak:11, exDone:31, correct:240, answered:280, mastery:{grammaire:90,orthographe:78},
+     badges:['b1','b2','b3'], status:'active', linked:true, googleEmail:'youcef@example.com', color:'#E08A00'},
+    {id:'s4', ar:'مريم زيتوني', fr:'Meriem Zitouni', level:'3AM', group:null, parent:'',
+     xp:0, streak:0, exDone:0, correct:0, answered:0, mastery:{}, badges:[],
+     status:'active', linked:false, color:'#B423A2'}
+  ],
+  pending: [
+    {id:'u9', name:'نوال بوعزة', email:'noual@example.com'},
+    {id:'u10', name:'Karim B.', email:'karim@example.com'}
+  ],
+  registrations: [
+    {id:'r1', name:'إلياس بوعلام', level:'4AM', birth:'2010-05-04', parentPhone:'0555 77 88 99',
+     email:'ilyas@example.com', school:'متوسطة الأمير عبد القادر', note:'أرغب في حصص السبت',
+     status:'new', at:{seconds: Math.floor(Date.now()/1000) - 7200}},
+    {id:'r2', name:'هبة مرزوق', level:'2AM', birth:'2012-01-19', parentPhone:'0666 12 34 56',
+     email:'', school:'متوسطة خميس مليانة', note:'', status:'new',
+     at:{seconds: Math.floor(Date.now()/1000) - 172800}}
+  ],
+  lessons: [
+    {id:'l1', level:'4AM', ax:'grammaire', ar:'الجملة الموصولة', fr:'La proposition relative',
+     sumAr:'وظائف qui · que · dont · où', sumFr:'Fonctions de qui, que, dont, où',
+     content:'<h3>Les pronoms relatifs</h3><p><b>qui</b> : sujet · <b>que</b> : COD</p>',
+     min:20, xp:25, files:1, video:false, published:true},
+    {id:'l2', level:'3AM', ax:'conjugaison', ar:'الأزمنة المركّبة', fr:'Les temps composés',
+     sumAr:'الماضي المركب', sumFr:'Le passé composé', content:'<p>avoir / être + participe</p>',
+     min:22, xp:25, files:0, video:true, published:false}
+  ],
+  exercises: [
+    {id:'e1', level:'4AM', ax:'grammaire', type:'quiz', diff:2, min:10, q:8, xpMax:190, tries:3,
+     titleAr:'تمرين — الضمائر', titleFr:'Exercice — Les pronoms', questions:[{},{},{},{},{},{},{},{}],
+     published:true, lessonId:'l1'}
+  ],
+  announcements: [
+    {id:'a1', ar:'حصّة تعويضية', fr:'Séance de rattrapage', arBody:'حصّة تعويضية يوم السبت على 14:00.',
+     frBody:'Séance de rattrapage samedi à 14h00.', bodyAr:'حصّة تعويضية يوم السبت على 14:00.',
+     bodyFr:'Séance de rattrapage samedi à 14h00.', importance:'important', pinned:true,
+     date:'2026-09-30', audienceAr:'4AM', audienceFr:'4AM'}
+  ],
+  messages: [
+    {id:'m1', from:'وليّ تلميذ', contact:'0555 00 11 22', subject:'تسجيل في فوج', level:'4AM',
+     body:'أريد تسجيل ابنتي في فوج السنة الرابعة.', role:'contact', date:'2026-10-01', read:false}
+  ]
+};
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div style="position:fixed;inset-block-end:12px;inset-inline-start:12px;z-index:999;background:#0E1B3D;color:#fff;padding:8px 14px;border-radius:12px;font:700 12px/1.6 system-ui">
+  معاينة تجريبية بلا قاعدة بيانات — <a href=".preview-student.html" style="color:#9CC0FF">فضاء التلميذ</a>
+</div>
+<script src="assets/js/00-i18n.js?v=5"></script>
+<script src="assets/js/01-progression.js?v=5"></script>
+<script src="assets/js/02-ui.js?v=5"></script>
+<script src="assets/js/03-data.js?v=5"></script>
+<script src="assets/js/04-firebase.js?v=5"></script>
+<script src="assets/js/05-app-shell.js?v=5"></script>
+<script src="assets/js/page-admin.js?v=5"></script>
+</body>
+</html>

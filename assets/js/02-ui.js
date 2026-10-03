@@ -7,6 +7,20 @@
 "use strict";
 const $  = (s,c)=> (c||document).querySelector(s);
 const $$ = (s,c)=> Array.from((c||document).querySelectorAll(s));
+
+/* ══════════ 0. SÉCURITÉ : échappement HTML ══════════
+   Tout texte saisi par un utilisateur (message du formulaire de contact,
+   nom d'élève, réponse de la professeure…) doit passer par esc() avant
+   d'être injecté dans un gabarit : sinon un visiteur peut injecter du
+   code dans la page (XSS). Les contenus rédigés par la professeure
+   (cours HTML, annonces) ne sont PAS échappés : ils sont volontairement
+   riches et réservés à l'admin. */
+function esc(v){
+  return String(v==null ? '' : v).replace(/[&<>"']/g, c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
 const store = {
   get(k,d){ try{const v=localStorage.getItem(k); return v===null?d:v;}catch(e){return d;} },
   set(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
@@ -175,8 +189,10 @@ function buildHeader(active){
           <button data-lang="ar">AR</button><button data-lang="fr">FR</button>
         </div>
         <button class="btn btn--g btn--i" data-theme-btn title="Theme">${svg('moon')}</button>
+        <a class="btn btn--g btn--i" href="admin/index.html" data-i18n-tt="adminLink"
+           title="دخول الأستاذة" aria-label="دخول الأستاذة">${svg('lock')}</a>
         <a class="btn btn--p btn--sm" href="student/index.html">
-          ${svg('users','width="17" height="17"')}<span data-i18n="navLogin">دخول التلميذ</span>
+          ${svg('users','width="17" height="17"')}<span data-i18n="navLogin">تسجيل التلميذ</span>
         </a>
         <button class="btn btn--g btn--i brg" id="brg" aria-label="Menu">${svg('menu')}</button>
       </div>
@@ -219,7 +235,10 @@ function buildFooter(){
             <li><a href="levels.html#4am">4AM — <span data-i18n="lv4"></span></a></li>
           </ul>
           <h4 class="mt5" data-i18n="ftSpace">فضاء التلميذ</h4>
-          <ul><li><a href="student/index.html" data-i18n="navLogin"></a></li></ul>
+          <ul>
+            <li><a href="student/index.html" data-i18n="navLogin"></a></li>
+            <li><a href="admin/index.html" data-i18n="adminLink"></a></li>
+          </ul>
         </div>
         <div>
           <h4 data-i18n="ftContact">التواصل</h4>
@@ -474,8 +493,8 @@ function boot(active){
 
 /* ══════════ API PUBLIQUE ══════════ */
 window.PK = {
-  $, $$, store, boot, mountChrome, buildHeader, buildFooter, logo, icon, svg, ICONS,
-  toast, modal, openPalette, setPalette,
+  $, $$, esc, store, boot, mountChrome, buildHeader, buildFooter, logo, icon, svg, ICONS,
+  toast, modal, openPalette, setPalette, err: (e)=> (window.PKdb && window.PKdb.errMsg ? window.PKdb.errMsg(e) : String(e&&e.message||e)),
   initReveal, initCounters, initProgress, replayFx, initSpot, initTabs, confetti,
   applyTheme, toggleTheme,
   /* traduction : t('clé') → texte dans la langue courante */

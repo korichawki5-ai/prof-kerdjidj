@@ -106,6 +106,8 @@ const me = null;  /* profil réel : users/{uid} + progress (hydrateMe) */
 /* ───────── ANNONCES ───────── */
 const announcements = []; /* rempli depuis Firestore (hydrate) */
 const messages = [];      /* messages réels : page Contact + espace élève */
+const pending  = [];      /* comptes Google sans fiche reliée (attente de confirmation) */
+const registrations = []; /* طلبات التسجيل الحقيقية (استمارة التلميذ) — تصل من الموقع مباشرة */
 
 /* ───────── AIDES ───────── */
 const byId = (arr,id)=> arr.find(x=>x.id===id);
@@ -115,6 +117,6 @@ const lessonsOf = lv => window.PKdata.lessons.filter(l=>l.level===lv);
 const exercisesOf = lv => window.PKdata.exercises.filter(e=>e.level===lv);
 const schoolName = (k,lang)=> (window.PKi18n ? window.PKi18n.t(k,lang) : k);
 
-return {settings, levels, axes, lessons, exercises, groups, slots, days, students, me, announcements, messages,
+return {settings, levels, axes, lessons, exercises, groups, slots, days, students, me, announcements, messages, pending, registrations,
         byId, groupOf, slotAt, lessonsOf, exercisesOf, schoolName};
 })();
