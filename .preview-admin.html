@@ -13,18 +13,23 @@
 <meta name="robots" content="noindex,nofollow">
 <title>معاينة لوحة الإدارة (تجريبية)</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%230E1B3D'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/css/00-tokens.css?v=3">
-<link rel="stylesheet" href="assets/css/01-base.css?v=3">
-<link rel="stylesheet" href="assets/css/02-components.css?v=3">
-<link rel="stylesheet" href="assets/css/03-layout.css?v=3">
-<link rel="stylesheet" href="assets/css/04-sections.css?v=3">
-<link rel="stylesheet" href="assets/css/05-app.css?v=3">
-<link rel="stylesheet" href="assets/css/06-animations.css?v=3">
-<link rel="stylesheet" href="assets/css/07-responsive.css?v=3">
+<link rel="stylesheet" href="assets/css/00-tokens.css?v=5">
+<link rel="stylesheet" href="assets/css/01-base.css?v=5">
+<link rel="stylesheet" href="assets/css/02-components.css?v=5">
+<link rel="stylesheet" href="assets/css/03-layout.css?v=5">
+<link rel="stylesheet" href="assets/css/04-sections.css?v=5">
+<link rel="stylesheet" href="assets/css/05-app.css?v=5">
+<link rel="stylesheet" href="assets/css/06-animations.css?v=5">
+<link rel="stylesheet" href="assets/css/07-responsive.css?v=5">
 <script>
 /* mode test : aucune connexion à Firestore, contenu d'exemple */
 window.__PK_TEST__ = true;
 window.__PK_SEED__ = {
+  /* compte « professeure » : sans lui, le panneau affiche la porte de connexion
+     (comportement voulu depuis le correctif « دخول الأستاذة ») */
+  me: { id:'a1', uid:'a1', role:'admin', email:'prof@example.com', ar:'الأستاذة كرجيج', fr:'Prof. Kerdjidj',
+        level:null, xp:0, streak:0, best:0, lessonsDone:0, exDone:0, quizDone:0, correct:0, answered:0,
+        minutes:0, mastery:{}, badges:[], doneIds:[], group:null, school:null, linked:false },
   groups: [
     {id:'g1', name:'G1 · 4AM', level:'4AM', day:'sat', start:'14:00', end:'15:30', room:'قاعة 1',
      teacher:'Prof. Kerdjidj', schoolAr:'متوسطة خميس مليانة', schoolFr:'CEM Khemis Miliana',
@@ -91,12 +96,12 @@ window.__PK_SEED__ = {
 <div style="position:fixed;inset-block-end:12px;inset-inline-start:12px;z-index:999;background:#0E1B3D;color:#fff;padding:8px 14px;border-radius:12px;font:700 12px/1.6 system-ui">
   معاينة تجريبية بلا قاعدة بيانات — <a href=".preview-student.html" style="color:#9CC0FF">فضاء التلميذ</a>
 </div>
-<script src="assets/js/00-i18n.js?v=3"></script>
-<script src="assets/js/01-progression.js?v=3"></script>
-<script src="assets/js/02-ui.js?v=3"></script>
-<script src="assets/js/03-data.js?v=3"></script>
-<script src="assets/js/04-firebase.js?v=3"></script>
-<script src="assets/js/05-app-shell.js?v=3"></script>
-<script src="assets/js/page-admin.js?v=3"></script>
+<script src="assets/js/00-i18n.js?v=5"></script>
+<script src="assets/js/01-progression.js?v=5"></script>
+<script src="assets/js/02-ui.js?v=5"></script>
+<script src="assets/js/03-data.js?v=5"></script>
+<script src="assets/js/04-firebase.js?v=5"></script>
+<script src="assets/js/05-app-shell.js?v=5"></script>
+<script src="assets/js/page-admin.js?v=5"></script>
 </body>
 </html>

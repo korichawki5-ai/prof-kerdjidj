@@ -192,12 +192,20 @@ function dbStatusLine(){
     ? `<p class="gate__s">${svg('check','width="14" height="14"')}<span> ${t('dbReady')}</span></p>`
     : `<p class="gate__s">${svg('info','width="14" height="14"')}<span> ${t('notConnected')}</span></p>`;
 }
+/* رابط لوحة الأستاذة: يعمل من الجذر (index.html) ومن مجلد student/ */
+function adminHref(){
+  return (location.pathname.indexOf('/student/') !== -1) ? '../admin/index.html' : 'admin/index.html';
+}
 function loginCard(){
   const t = window.PKi18n.t, svg = window.PK.svg;
-  return `<section class="gate"><div class="gate__c">${svg('lock','width="36" height="36"')}
-    <h2>${t('adminOnly')}</h2>
-    <button class="btn btn--p btn--lg" data-gate-login>${t('navAdminLogin')} · Google</button>
-    ${dbStatusLine()}</div></section>`;
+  return `<section class="gate"><div class="gate__c">
+    <span class="ico ico--sm" style="margin-block-end:6px">${svg('lock')}</span>
+    <h2>${t('adminLoginTitle')}</h2>
+    <p class="gate__s">${t('adminLoginHint')}</p>
+    <button class="btn btn--p btn--lg" data-gate-login>${svg('lock','width="18" height="18"')}${t('adminLoginGo')} · Google</button>
+    ${dbStatusLine()}
+    <p class="gate__s"><a href="../index.html">${t('backToSite')}</a></p>
+    </div></section>`;
 }
 /* بوابة الإدارة: ثلاثة حالات مختلفة بدل رسالة واحدة غامضة
    (أ) حساب Google مسجَّل لكن بلا صلاحية admin → تشخيص واضح + UID + خطوات؛
@@ -221,7 +229,7 @@ function adminGate(){
         <button class="btn btn--p btn--lg" data-gate-recheck>${svg('refresh','width="17" height="17"')}${t('adminRoleRecheck')}</button>
         <button class="btn btn--g" data-gate-login>${t('navAdminLogin')} · Google</button>
       </div>
-      <p class="gate__s"><a href="#" data-gate-out>${t('sbOut')}</a></p>
+      <p class="gate__s"><a href="#" data-gate-out>${t('sbOut')}</a> · <a href="../index.html">${t('backToSite')}</a></p>
     </div></section>`;
   }
   return loginCard();
@@ -267,6 +275,9 @@ function regForm(){
       <button class="btn btn--p btn--lg btn--blk mt4" type="submit" data-reg-submit>
         ${svg('check','width="17" height="17"')}${t('regSubmit')}</button>
       <p class="regf__note">${svg('info','width="14" height="14"')} <span>${t('regLocalNote')}</span></p>
+      <p class="gate__s" style="margin-block-start:10px">
+        ${t('adminOrTeacher')} <a href="${adminHref()}">${svg('lock','width="13" height="13"')} ${t('adminLink')}</a>
+      </p>
     </form>
   </div></section>`;
 }
@@ -278,7 +289,8 @@ const PKgate = {
     const D = window.PKdata, m = D.me, t = window.PKi18n.t;
     /* لوحة الإدارة: تبقى بحساب Google الخاص بالأستاذة (كما كانت) */
     if(role === 'admin'){
-      if(!m || (m.role !== 'admin' && !window.PKdb.mock)) return adminGate();
+      /* toujours exiger le rôle admin (même si Firebase est indisponible) */
+      if(!m || m.role !== 'admin') return adminGate();
       return '';
     }
     /* فضاء التلميذ: مسجَّل على هذا الجهاز ← يدخل مباشرة بلا أي حساب.

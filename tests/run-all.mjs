@@ -267,10 +267,18 @@ sec("5 · Moteur d'exercice (correction immédiate + XP + revue)");
   dom.window.close();
 }
 
+/* Session « professeure » : le panneau exige désormais un compte admin
+   (même en mode local) — voir le correctif « دخول الأستاذة ». */
+const ADMIN_ME = { id:"a1", uid:"a1", role:"admin", email:"prof@example.com",
+  ar:"الأستاذة كرجيج", fr:"Prof. Kerdjidj", level:null, xp:0, streak:0, best:0,
+  lessonsDone:0, exDone:0, quizDone:0, correct:0, answered:0, minutes:0,
+  mastery:{}, badges:[], doneIds:[], group:null, school:null, linked:false };
+const seedAdmin = s => Object.assign({}, s || {}, { me: ADMIN_ME });
+
 /* ═══════════ 6. PANNEAU ADMIN — 11 MODULES ═══════════ */
 sec("6 · Panneau d'administration — 11 modules sur données semées");
 {
-  const { dom, errs } = await boot("admin/index.html", { seed: SEED });
+  const { dom, errs } = await boot("admin/index.html", { seed: seedAdmin(SEED) });
   await wait(760);
   const h = helpers(dom);
   ck("12 onglets (dont « طلبات التسجيل »)", h.qa("[data-atab]").length === 12, h.qa("[data-atab]").length + "");
@@ -316,7 +324,7 @@ sec("6 · Panneau d'administration — 11 modules sur données semées");
 /* ═══════════ 7. PARAMÈTRES → PAGE CONTACT ═══════════ */
 sec("7 · Enregistrement des coordonnées depuis l'admin");
 {
-  const { dom, errs } = await boot("admin/index.html", { hash: "#settings", seed: SEED });
+  const { dom, errs } = await boot("admin/index.html", { hash: "#settings", seed: seedAdmin(SEED) });
   await wait(760);
   const h = helpers(dom);
   ck("Module Paramètres ouvert par le hash", /Paramètres|الإعدادات/.test(h.txt("#adTitle")));

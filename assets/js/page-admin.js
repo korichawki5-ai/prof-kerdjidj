@@ -11,6 +11,13 @@ const {$, $$, esc, svg, t, toast, modal, replayFx, initReveal, confetti} = windo
 const D = window.PKdata, X = window.PKxp;
 let L='ar'; const ar=()=>L==='ar'; const L_=(a,f)=>ar()?a:f;
 
+/* Sans donnée saisie, une moyenne n'existe pas : on affiche « — » et JAMAIS
+   « NaN » (constaté sur la plateforme encore vide : « الدقّة NaN% »). */
+const pctOrDash = (part, whole) => whole ? Math.round((part/whole)*100)+'%' : '—';
+const avgOrDash = (total, n) => n ? Math.round(total/n).toLocaleString('fr-FR') : '—';
+/* Champ non renseigné par la professeure → « — », jamais « undefined ». */
+const orDash = v => (v === null || v === undefined || v === '') ? '—' : v;
+
 const DAYS={sat:['السبت','Samedi','Sam'],sun:['الأحد','Dimanche','Dim'],mon:['الاثنين','Lundi','Lun'],
             tue:['الثلاثاء','Mardi','Mar'],wed:['الأربعاء','Mercredi','Mer'],thu:['الخميس','Jeudi','Jeu']};
 const AXFR={grammaire:'Grammaire',conjugaison:'Conjugaison',orthographe:'Orthographe',vocabulaire:'Vocabulaire',
@@ -21,7 +28,10 @@ const ini=n=>n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 
 /* ══════════════════ VUE D'ENSEMBLE ══════════════════ */
 function overview(){
-  const st=D.students, act=st.filter(s=>s.status==='active');
+  /* stn() complète les champs manquants : une fiche créée à la main (ou depuis
+     une demande d'inscription) n'a pas forcément xp / mastery → sans cela,
+     « undefined » et plantages dans le tableau et les graphiques. */
+  const st=D.students.map(stn), act=st.filter(s=>s.status==='active');
   const n=st.length||1;
   const avgXp=Math.round(st.reduce((a,s)=>a+(s.xp||0),0)/n);
   const avgM=Math.round(st.reduce((a,s)=>a+X.globalMastery(s.mastery||{}),0)/n);
@@ -134,7 +144,7 @@ function overview(){
       <div class="cd rv" style="--d:140ms">
         <div class="cd__t mb4" style="font-size:.98rem">${L_('مؤشرات التدريب','Indicateurs d’entraînement')}</div>
         ${[[t('streak'),avgStreak,'flame','var(--wn)'],[t('mastery'),avgM+'%','target','var(--ok)'],
-           [t('accuracy'),Math.round(st.reduce((a,s)=>a+s.correct/Math.max(s.answered||1,1)*100,0)/st.length)+'%','checkc','var(--ac)'],
+           [t('accuracy'),pctOrDash(st.reduce((a,s)=>a+(s.correct||0),0), st.reduce((a,s)=>a+(s.answered||0),0)),'checkc','var(--ac)'],
            [t('exDone')||'تمارين محلولة',st.reduce((a,s)=>a+s.exDone,0),'quiz','var(--pu)']]
           .map(([l,v,ic,c])=>`<div class="flex just-b items-c" style="padding:11px 0;border-block-end:1px dashed var(--line)">
             <span class="flex items-c gap3" style="font-size:.88rem">${svg(ic,'width="16" height="16" style="color:'+c+'"')}${l}</span>
@@ -152,11 +162,14 @@ function timetable(){
   D.slots.forEach(slot=>{
     grid+=`<div class="hr la">${slot}</div>`;
     D.days.forEach(d=>{
-      const g=D.slotAt(d,slot);
+      const g0=D.slotAt(d,slot);
+      /* séance saisie à moitié (sans salle / professeure / école) : « — » et non
+         « undefined » dans la grille des horaires */
+      const g = g0 ? Object.assign({name:'—', schoolAr:'', schoolFr:'', teacher:'', start:'—', end:'—'}, g0) : null;
       grid += g
-        ? `<div class="sl" data-day="${d}" data-slot="${slot}"><div class="blk ${g.cls}" draggable="true">
+        ? `<div class="sl" data-day="${d}" data-slot="${slot}"><div class="blk ${esc(g.cls||'')}" draggable="true">
              <span class="blk__g">${svg('drag','width="13" height="13"')}</span>
-             <b>${g.name}</b><small>${L_(g.schoolAr,g.schoolFr)}</small><i>${g.teacher} · ${g.start}–${g.end}</i>
+             <b>${esc(g.name)}</b><small>${esc(L_(g.schoolAr,g.schoolFr)||'—')}</small><i>${esc(g.teacher||'—')} · ${esc(g.start)}–${esc(g.end)}</i>
            </div></div>`
         : `<div class="sl" data-day="${d}" data-slot="${slot}"></div>`;
     });
@@ -181,8 +194,8 @@ function timetable(){
       return `<div class="cd rv">
         <div class="flex items-c gap3 mb4"><span class="lv__b ${l.cls}" style="width:44px;height:44px;border-radius:14px;font-size:.85rem">${l.id}</span>
           <div><b>${L_(l.ar,l.fr)}</b><div class="muted la" style="font-size:.8rem">${gs.length} ${t('adGroups')}</div></div></div>
-        ${gs.map(g=>`<div class="mini-row"><span class="dot-st dot-st--on"></span><b class="la">${g.name}</b>
-          <span class="muted" style="margin-inline-start:auto;font-size:.8rem">${DAYS[g.day][ar()?0:1]} ${g.start}</span></div>`).join('')}
+        ${gs.map(g=>`<div class="mini-row"><span class="dot-st dot-st--on"></span><b class="la">${esc(g.name||'—')}</b>
+          <span class="muted" style="margin-inline-start:auto;font-size:.8rem">${(DAYS[g.day]||['—'])[ar()?0:1]} ${esc(g.start||'—')}</span></div>`).join('')}
       </div>`;}).join('')}
   </div>`;
 }
@@ -275,21 +288,30 @@ function groups(){
     <button class="btn btn--p" data-add-group>${svg('plus','width="17" height="17"')}${t('grNew')||t('adNewGroup')}</button>
   </div>
   <div class="g g3 cas">
-    ${D.groups.map(g=>{
-      const free=g.capacity-g.enrolled, pct=Math.round(g.enrolled/g.capacity*100);
+    ${D.groups.map(gr0=>{
+      /* Un groupe fraîchement créé n'a pas forcément capacité / effectif / salle :
+         on affiche « — » au lieu de « undefined », et aucun calcul sur du vide. */
+      const g = Object.assign({name:'—', level:'', day:'sat', start:'—', end:'—', room:'', teacher:'',
+        schoolAr:'', schoolFr:'', capacity:0, enrolled:0}, gr0||{});
+      const lv = D.byId(D.levels, g.level) || {ar:g.level||'—', fr:g.level||'—', cls:''};
+      const day = DAYS[g.day] || ['—','—','—'];
+      const cap = (typeof g.capacity==='number' && isFinite(g.capacity)) ? g.capacity : 0;
+      const enr = (typeof g.enrolled==='number' && isFinite(g.enrolled)) ? g.enrolled : 0;
+      const free=cap-enr, pct=cap?Math.round(enr/cap*100):0;
       const dash=Math.round(2*Math.PI*24*pct/100), circ=Math.round(2*Math.PI*24);
-      return `<div class="grp ${g.cls} rv">
+      return `<div class="grp ${esc(g.cls||'')} rv">
         <div class="grp__h">
-          <div class="grp__b la">${g.name.replace(' · ','·')}</div>
-          ${free>0?`<span class="bd bd--ok la">${free} ${t('grFree')}</span>`:`<span class="bd bd--er">${t('grFull')}</span>`}
+          <div class="grp__b la">${esc(String(g.name).replace(' · ','·'))}</div>
+          ${!cap?`<span class="bd bd--gy">${t('grCap')}: —</span>`
+            :free>0?`<span class="bd bd--ok la">${free} ${t('grFree')}</span>`:`<span class="bd bd--er">${t('grFull')}</span>`}
         </div>
-        <div class="grp__n">${L_(D.byId(D.levels,g.level).ar,D.byId(D.levels,g.level).fr)}</div>
-        <div class="grp__f la">${g.name} · ${DAYS[g.day][2]} ${g.start}–${g.end}</div>
+        <div class="grp__n">${esc(L_(lv.ar,lv.fr))}</div>
+        <div class="grp__f la">${esc(g.name)} · ${day[2]} ${esc(g.start)}–${esc(g.end)}</div>
         <ul class="grp__l">
-          <li>${svg('cal')}<span>${DAYS[g.day][ar()?0:1]} · <b class="la">${g.start} – ${g.end}</b></span></li>
-          <li>${svg('school')}<span>${L_(g.schoolAr,g.schoolFr)}</span></li>
-          <li>${svg('user')}<span>${g.teacher} · ${t('onsite')}</span></li>
-          <li>${svg('target')}<span>${g.room} · ${t('grCap')} <b class="la">${g.capacity}</b></span></li>
+          <li>${svg('cal')}<span>${day[ar()?0:1]} · <b class="la">${esc(g.start)} – ${esc(g.end)}</b></span></li>
+          <li>${svg('school')}<span>${esc(L_(g.schoolAr,g.schoolFr)||'—')}</span></li>
+          <li>${svg('user')}<span>${esc(g.teacher||'—')} · ${t('onsite')}</span></li>
+          <li>${svg('target')}<span>${esc(g.room||'—')} · ${t('grCap')} <b class="la">${cap?cap:'—'}</b></span></li>
         </ul>
         <div class="grp__c">
           <svg class="ring" viewBox="0 0 56 56" width="52" height="52">
@@ -297,7 +319,7 @@ function groups(){
               stroke-dasharray="${dash} ${circ}" style="stroke:var(--lvc)"/></svg>
           <div style="flex:1">
             <div class="flex just-b" style="font-size:.82rem;margin-block-end:5px">
-              <span class="muted">${t('grStudents')}</span><b class="la">${g.enrolled}/${g.capacity}</b></div>
+              <span class="muted">${t('grStudents')}</span><b class="la">${cap?enr+'/'+cap:'—'}</b></div>
             <div class="prg prg--sm"><i data-w="${pct}%" style="width:${pct}%;background:var(--lvc)"></i></div>
           </div>
         </div>
@@ -531,16 +553,18 @@ function lessons(){
     ${D.lessons.map(l=>{
       const ex=D.exercises.filter(e=>e.lessonId===l.id).length;
       const ax=D.axes.find(a=>a.id===l.ax);
+      const lv0=D.byId(D.levels,l.level)||{cls:'',ar:l.level||'—',fr:l.level||'—'};
+      const sum=L_(l.sumAr||'',l.sumFr||'');
       const pub=(l.published!==undefined ? !!l.published : !!l.done);
-      return `<div class="lsn rv" data-lesson="${l.id}">
-        <div class="lsn__t"><span class="lv__b ${D.byId(D.levels,l.level).cls}">${l.level}</span>
-          <span class="bd bd--gy">${ax?L_(ax.ar,ax.fr):(AXFR[l.ax]||l.ax)}</span>
+      return `<div class="lsn rv" data-lesson="${esc(l.id)}">
+        <div class="lsn__t"><span class="lv__b ${esc(lv0.cls)}">${esc(l.level||'—')}</span>
+          <span class="bd bd--gy">${esc(ax?L_(ax.ar,ax.fr):(AXFR[l.ax]||l.ax||'—'))}</span>
           ${l.isNew?`<span class="bd bd--ac">${svg('spark','width="11" height="11"')}${t('lsNew')}</span>`:''}
           <span class="bd ${pub?'bd--ok':'bd--wn'}" style="margin-inline-start:auto">${pub?t('lsPub'):t('lsDraft')}</span></div>
-        <h3 class="lsn__n" dir="ltr">${L_(l.ar,l.fr)}</h3>
-        <p class="lsn__d">${L_(l.sumAr,l.sumFr)}</p>
+        <h3 class="lsn__n" dir="ltr">${esc(L_(l.ar,l.fr)||'—')}</h3>
+        ${sum?`<p class="lsn__d">${esc(sum)}</p>`:'<p class="lsn__d muted">—</p>'}
         <div class="lsn__f la">
-          <span>${svg('clock','width="13" height="13"')}${l.min} min</span>
+          <span>${svg('clock','width="13" height="13"')}${orDash(l.min)} min</span>
           <span>${svg('quiz','width="13" height="13"')}${ex}</span>
           <span>${svg('bolt','width="13" height="13"')}${l.xp||25} XP</span>
           <span>${svg('file','width="13" height="13"')}${l.files||0} ${t('lsPdf')}</span>
@@ -604,9 +628,9 @@ function progression(){
   return `
   <div class="kpis cas">
     ${[[t('stTotalXp'),st.reduce((a,s)=>a+s.xp,0).toLocaleString('fr-FR'),'bolt','ico--wn'],
-       [t('stAvgXp'),Math.round(st.reduce((a,s)=>a+s.xp,0)/st.length).toLocaleString('fr-FR'),'trend',''],
+       [t('stAvgXp'),avgOrDash(st.reduce((a,s)=>a+s.xp,0), st.length),'trend',''],
        [t('stExDone'),st.reduce((a,s)=>a+s.exDone,0),'quiz','ico--cy'],
-       [t('stAccuracy'),Math.round(st.reduce((a,s)=>a+s.correct/s.answered*100,0)/st.length)+'%','checkc','ico--ok']]
+       [t('stAccuracy'),pctOrDash(st.reduce((a,s)=>a+(s.correct||0),0), st.reduce((a,s)=>a+(s.answered||0),0)),'checkc','ico--ok']]
       .map(([l,v,ic,c])=>`<div class="kpi rv"><div class="kpi__t"><span class="ico ico--sm ${c}">${svg(ic)}</span></div>
         <div class="kpi__n la">${v}</div><div class="kpi__l">${l}</div></div>`).join('')}
   </div>
@@ -645,7 +669,7 @@ function progression(){
       <thead><tr><th>${t('stuName')}</th><th>${t('stuLevel')}</th><th>XP</th><th>${t('rank')}</th>
         <th>${t('streak')}</th><th>${t('exDone')}</th><th>${t('accuracy')}</th><th>${t('mastery')}</th><th>${t('badges')}</th></tr></thead>
       <tbody>${st.map(s=>{const r=X.rankOf(s.xp), rp=X.rankProgress(s.xp), gm=X.globalMastery(s.mastery),
-        acc=s.answered?Math.round(s.correct/s.answered*100):0; return `<tr>
+        acc=pctOrDash(s.correct||0, s.answered||0); return `<tr>
         <td><div class="who"><span class="av" style="background:${s.color||'#1E4FD8'}">${ini(s.fr)}</span><div><b>${L_(s.ar,s.fr)}</b><small>${s.group}</small></div></div></td>
         <td><span class="bd bd--lv ${D.byId(D.levels,s.level).cls}">${s.level}</span></td>
         <td><b class="la acc">${s.xp.toLocaleString('fr-FR')}</b></td>
@@ -654,7 +678,7 @@ function progression(){
           <div class="prg prg--sm"><i data-w="${rp.pct}%" style="width:${rp.pct}%"></i></div></div></td>
         <td><span class="la">${svg('flame','width="13" height="13" fill="var(--wn)" stroke="none" style="display:inline;vertical-align:-2px"')} ${s.streak}</span></td>
         <td class="la">${s.exDone}</td>
-        <td><span class="bd ${acc>=80?'bd--ok':acc>=55?'bd--wn':'bd--er'} la">${acc}%</span></td>
+        <td><span class="bd la">${acc}</span></td>
         <td><b class="la">${gm}%</b></td>
         <td><div class="flex gap2">${(s.badges||[]).slice(0,4).map(id=>{const b=X.BADGES.find(x=>x.id===id);return b?`<span class="ico ico--xs" title="${t(b.i18n)}">${svg(b.icon)}</span>`:'';}).join('')}
           ${(s.badges||[]).length>4?`<span class="bd bd--gy la">+${(s.badges||[]).length-4}</span>`:''}</div></td>
@@ -686,7 +710,10 @@ function moduleFromHash(){
 function render(mn){
   L = window.PKi18n.current();
   /* حماية اللوحة في الوضع الحيّ : role admin فقط */
-  if(!window.PKdb.mock && !(window.PKdata.me && window.PKdata.me.role==='admin')){
+  /* Le panneau exige un compte admin — dans TOUS les cas. Avant, en mode
+     « base locale » (Firebase indisponible) la porte disparaissait : on voyait
+     un panneau vide sans aucun bouton de connexion. */
+  if(!(window.PKdata.me && window.PKdata.me.role==='admin')){
     /* trois cas distincts : non connecté / connecté sans rôle admin / base locale */
     mn.innerHTML = window.PKapp.PKgate.adminGate();
     window.PKapp.PKgate.bind(mn, ()=>render(mn)); return;
@@ -880,7 +907,7 @@ function bindCommon(p){
     const raw=D.students.find(x=>x.id===b.dataset.viewStudent); if(!raw) return;
     const s=stn(raw);
     const r=X.rankOf(s.xp), rp=X.rankProgress(s.xp);
-    const acc=s.answered?Math.round(s.correct/s.answered*100):0, mst=X.globalMastery(s.mastery);
+    const acc=pctOrDash(s.correct||0, s.answered||0), mst=X.globalMastery(s.mastery);
     modal(`<div class="md">
       <div class="md__h"><div class="who"><span class="av" style="background:${s.color};width:44px;height:44px;font-size:1rem">${esc(ini(s.fr||s.ar||'--'))}</span>
         <div><b style="font-size:1.05rem">${esc(L_(s.ar,s.fr)||'—')}</b><small class="muted">${esc(s.group||'—')} · ${esc(s.level)}</small></div></div>
@@ -890,7 +917,7 @@ function bindCommon(p){
           <div><b>${L_(r.ar,r.fr)}</b><div class="muted la" style="font-size:.82rem">${s.xp.toLocaleString('fr-FR')} XP · ${rp.pct}%</div></div></div>
         <div class="prg mb5"><i style="width:${rp.pct}%"></i></div>
         <div class="g g3 mb5" style="gap:12px">
-          ${[[t('streak'),s.streak],[t('accuracy'),acc+'%'],[t('mastery'),mst+'%']]
+          ${[[t('streak'),s.streak],[t('accuracy'),acc],[t('mastery'),mst+'%']]
             .map(([l,v])=>`<div class="cd cd--flat" style="background:var(--bg2);padding:14px;text-align:center">
               <div class="la" style="font-size:1.3rem;font-weight:800">${v}</div><div class="muted" style="font-size:.78rem">${l}</div></div>`).join('')}
         </div>
@@ -927,7 +954,7 @@ function syncTop(mn){
 
 /* ══════════════════ BANQUE DE QUESTIONS ══════════════════ */
 function qbank(){
-  const qs=[]; D.exercises.forEach(e=> e.questions.forEach(q=> qs.push({e,q})));
+  const qs=[]; D.exercises.forEach(e=> (Array.isArray(e.questions)?e.questions:[]).forEach(q=> qs.push({e,q})));
   const byAx={}; qs.forEach(({e})=>{ byAx[e.ax]=(byAx[e.ax]||0)+1; });
   return `
   <div class="kpis cas">
@@ -952,7 +979,7 @@ function qbank(){
       <tbody>${qs.slice(0,18).map(({e,q})=>`<tr>
         <td dir="ltr" style="text-align:start;font-size:.87rem">${q.t.length>72?q.t.slice(0,72)+'…':q.t}</td>
         <td><span class="bd bd--gy">${AXFR[e.ax]||e.ax}</span></td>
-        <td><span class="bd bd--lv ${D.byId(D.levels,e.level).cls}">${e.level}</span></td>
+        <td><span class="bd bd--lv ${esc((D.byId(D.levels,e.level)||{}).cls||'')}">${esc(e.level||'—')}</span></td>
         <td><span class="diff diff--${q.d||1}"><i class="on"></i><i class="${(q.d||1)>=2?'on':''}"></i><i class="${(q.d||1)>=3?'on':''}"></i></span></td>
         <td><span class="qtype qtype--${q.tf!==undefined?'tf':'mcq'}">${q.tf!==undefined?t('tyTf'):(q.o?t('tyMcq'):t('qbAddFill'))}</span></td>
         <td class="la acc"><b>+${Math.round(X.CFG.xpBase*(X.CFG.multDiff[q.d||1]||1))}</b></td>

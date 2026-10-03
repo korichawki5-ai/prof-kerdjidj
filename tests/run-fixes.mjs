@@ -64,6 +64,15 @@ const H = dom => {
 
 console.log("\x1b[1m════ TESTS DES CORRECTIFS 2026-10 ════\x1b[0m");
 
+/* Fixture : la professeure connectée. Depuis le correctif « دخول الأستاذة »,
+   le panneau exige un compte admin MÊME hors ligne — les tests doivent donc
+   ouvrir une session, comme dans la réalité. */
+const ADMIN_ME = { id:"a1", uid:"a1", role:"admin", email:"prof@example.com",
+  ar:"الأستاذة كرجيج", fr:"Prof. Kerdjidj", level:null, xp:0, streak:0, best:0,
+  lessonsDone:0, exDone:0, quizDone:0, correct:0, answered:0, minutes:0,
+  mastery:{}, badges:[], doneIds:[], group:null, school:null, linked:false };
+const seedAdmin = s => Object.assign({}, s || {}, { me: ADMIN_ME });
+
 /* ══════════ 1. RESPONSIVE MOBILE ══════════ */
 sec("1 · Responsive : plus aucune grille inline (cause des pages cassées)");
 {
@@ -88,7 +97,7 @@ sec("1 · Responsive : plus aucune grille inline (cause des pages cassées)");
 /* ══════════ 2. ADMIN : FORMULAIRES RÉELS ══════════ */
 sec("2 · Admin : créer un élève, un groupe, un cours, une annonce");
 {
-  const { dom, errs } = await boot("admin/index.html#students");
+  const { dom, errs } = await boot("admin/index.html#students", { seed: seedAdmin({}) });
   await wait(700);
   const h = H(dom);
 
@@ -110,7 +119,7 @@ sec("2 · Admin : créer un élève, un groupe, un cours, une annonce");
   dom.window.close();
 
   /* — groupe (module « groupes ») — */
-  const gr = await boot("admin/index.html#groups");
+  const gr = await boot("admin/index.html#groups", { seed: seedAdmin({}) });
   await wait(700);
   const hg = H(gr.dom);
   ck("Le module Groupes s'affiche", !!hg.q("[data-add-group]"));
@@ -129,7 +138,7 @@ sec("2 · Admin : créer un élève, un groupe, un cours, une annonce");
 
 /* ══════════ 3. ADMIN : COURS + ANNONCE ══════════ */
 {
-  const { dom, errs } = await boot("admin/index.html#lessons");
+  const { dom, errs } = await boot("admin/index.html#lessons", { seed: seedAdmin({}) });
   await wait(700);
   const h = H(dom);
   ck("Module Cours ouvert par le hash", !!h.q("#lsBody"));
@@ -143,7 +152,7 @@ sec("2 · Admin : créer un élève, un groupe, un cours, une annonce");
   ck("Aucune erreur JS (cours)", errs.length === 0, errs[0] || "");
   dom.window.close();
 
-  const a = await boot("admin/index.html#announce");
+  const a = await boot("admin/index.html#announce", { seed: seedAdmin({}) });
   await wait(700);
   const g = H(a.dom);
   g.setVal("#anAr", "إعلان تجريبي");
@@ -236,7 +245,7 @@ sec("6 · Données incomplètes : ni plantage ni « undefined »");
   ck("Exercice incomplet : aucun « undefined »", h.noUndef());
   dom.window.close();
 
-  const a = await boot("admin/index.html#students", { seed: SEED });
+  const a = await boot("admin/index.html#students", { seed: seedAdmin(SEED) });
   await wait(700);
   const g = H(a.dom);
   ck("Fiche élève incomplète : le panneau s'affiche", g.txt().length > 800);
@@ -459,7 +468,7 @@ sec("10 · Inscription sans compte : formulaire → professeure → progression 
   pf.dom.window.close();
 
   /* — 8. la professeure accepte la demande → fiche élève créée — */
-  const ad = await boot("admin/index.html#reg", { seed: S10 });
+  const ad = await boot("admin/index.html#reg", { seed: seedAdmin(S10) });
   await wait(700);
   const ha = H(ad.dom);
   const wa = ad.dom.window;
@@ -499,6 +508,99 @@ sec("10 · Inscription sans compte : formulaire → professeure → progression 
   ck("Compte admin → panneau ouvert (accueil)", !!hg.q(".kpis") && !hg.q("[data-gate-recheck]"));
   ck("Aucune erreur JS (porte admin)", g1.errs.length === 0, g1.errs[0] || "");
   g1.dom.window.close();
+
+  /* ══ 12. « دخول الأستاذة » : الأستاذة يجب أن تجد مدخل لوحتها من الموقع ══
+     Avant ce correctif, AUCUN lien visible ne menait à la connexion admin :
+     il fallait connaître l'adresse par cœur. */
+  const pb = await boot("index.html", { seed: S10 });
+  await wait(700);
+  const wpb = pb.dom.window, hpb = H(pb.dom);
+  const hdLinks = [...hpb.q("header").querySelectorAll("a")].map(a => a.getAttribute("href") || "");
+  ck("لوحة الأستاذة: زر ظاهر في الشريط العلوي",
+     hdLinks.some(h => h.indexOf("admin/index.html") !== -1),
+     hdLinks.filter(h => h.indexOf("admin") !== -1).join(",") || "aucun");
+  const ftLinks = [...hpb.q("footer").querySelectorAll("a")].map(a => a.getAttribute("href") || "");
+  ck("لوحة الأستاذة: رابط في أسفل الصفحة (footer)",
+     ftLinks.some(h => h.indexOf("admin/index.html") !== -1));
+  ck("الرابط يحمل تلميحاً واضحاً «دخول الأستاذة»",
+     !!(hpb.q('[data-i18n-tt="adminLink"]')) || /دخول الأستاذة/.test(hpb.txt()));
+  /* le bouton Google de la page admin est réellement câblé (clic testé) */
+  const g2 = await boot("admin/index.html", { seed: S10 });
+  await wait(600);
+  const wg2 = g2.dom.window, hg2 = H(g2.dom);
+  Object.defineProperty(wg2.PKdb, "mock", { value:false, configurable:true });   // mode connecté
+  wg2.PKdata.me = null;                                                          // personne n'est connecté
+  wg2.document.dispatchEvent(new wg2.CustomEvent("pk:me", { detail:null }));
+  await wait(600);
+  let clicked = false;
+  const origLogin = wg2.PKdb.loginGoogle;
+  Object.defineProperty(wg2.PKdb, "loginGoogle", { value: ()=>{ clicked = true; return Promise.resolve(null); }, configurable:true });
+  const gateBtn = hg2.q("[data-gate-login]");
+  ck("صفحة الأستاذة: بطاقة «تسجيل دخول الأستاذة» + زر Google واضح",
+     !!gateBtn && /تسجيل دخول الأستاذة/.test(hg2.txt() || ""),
+     (hg2.txt() || "").slice(0, 60));
+  hg2.click(gateBtn);
+  await wait(400);
+  ck("الضغط على الزر يستدعي الدخول فعلاً (ليس زراً ميتاً)", clicked);
+  Object.defineProperty(wg2.PKdb, "loginGoogle", { value: origLogin, configurable:true });
+  ck("Aucune erreur JS (parcours professeure)", g2.errs.length === 0 && pb.errs.length === 0,
+     (g2.errs[0] || pb.errs[0] || ""));
+  g2.dom.window.close();
+  pb.dom.window.close();
+
+  /* ══ 13. لوحة فارغة (لا تلاميذ بعد) + قاعدة غير موصولة ══ */
+  const e1 = await boot("admin/index.html", { seed: seedAdmin({ students:[], groups:[], lessons:[], exercises:[], messages:[], registrations:[] }) });
+  await wait(800);
+  const we1 = e1.dom.window, he1 = H(e1.dom);
+  const bodyTxt = he1.txt() || "";
+  ck("لوحة فارغة: لا «NaN» في الشاشة", !/NaN/.test(bodyTxt),
+     (bodyTxt.match(/.{0,50}NaN.{0,30}/) || [""])[0].replace(/\s+/g," "));
+  ck("لوحة فارغة: لا «undefined» في الشاشة", he1.noUndef());
+  he1.click(he1.q('[data-atab="prog"]')); await wait(400);
+  const progTxt = he1.txt() || "";
+  ck("وحدة التقدّم فارغة: لا «NaN» (المعدّل يُعرض «—»)", !/NaN/.test(progTxt),
+     (progTxt.match(/.{0,50}NaN.{0,30}/) || [""])[0].replace(/\s+/g," "));
+  ck("Aucune erreur JS (tableau de bord vide)", e1.errs.length === 0, e1.errs[0] || "");
+  e1.dom.window.close();
+
+  /* hors ligne (Firebase indisponible) : la porte DOIT rester fermée */
+  const e2 = await boot("admin/index.html", { seed: {} });
+  await wait(700);
+  const he2 = H(e2.dom);
+  ck("قاعدة غير موصولة: بطاقة الدخول تظهر (لا لوحة مفتوحة بلا حساب)",
+     !!he2.q("[data-gate-login]") && !he2.q(".kpis"));
+  ck("Aucune erreur JS (hors ligne)", e2.errs.length === 0, e2.errs[0] || "");
+  e2.dom.window.close();
+
+  /* ══ 14. فحص كل الوحدات على بيانات ناقصة (حالة الأستاذة الحقيقية) ══
+     Une fiche/groupe/leçon à peine créé n'a pas tous les champs : aucun
+     «undefined», aucun «NaN», aucun plantage dans les 12 modules. */
+  const ETATS = [
+    ["base vide", { students:[], groups:[], lessons:[], exercises:[], messages:[], registrations:[] }],
+    ["groupe sans capacité", { groups:[{ id:"g1", name:"فوج جديد", level:"4AM", day:"sat" }] }],
+    ["leçon sans résumé", { lessons:[{ id:"l1", level:"4AM", ax:"grammaire", ar:"درس" }] }],
+    ["exercice sans questions", { exercises:[{ id:"e2", level:"4AM", ax:"grammaire" }] }],
+    ["élèves sans XP ni إتقان", { students:[{ id:"S1", ar:"تلميذ", fr:"Élève", level:"4AM", group:"G1" }, { id:"S2", fr:"Deux" }] }]
+  ];
+  const ONGLETS = ["overview", "tt", "students", "groups", "lessons", "bank", "prog", "reg"];
+  let pannes = [];
+  for (const [nom, extra] of ETATS) {
+    const b = await boot("admin/index.html", { seed: seedAdmin(extra) });
+    await wait(650);
+    const h = H(b.dom);
+    for (const m of ONGLETS) {
+      const tab = h.q('[data-atab="' + m + '"]');
+      if (tab) h.click(tab);
+      await wait(170);
+      const t = (h.q("#adPanel") || {}).textContent || "";
+      if (/undefined/.test(t)) pannes.push(nom + "/" + m + ":undefined");
+      if (/NaN/.test(t)) pannes.push(nom + "/" + m + ":NaN");
+    }
+    if (b.errs.length) pannes.push(nom + ":JS " + String(b.errs[0]).slice(0, 40));
+    b.dom.window.close();
+  }
+  ck("40 تركيبة (5 بيانات ناقصة × 8 وحدات): بلا undefined/NaN/خطأ",
+     pannes.length === 0, pannes.slice(0, 4).join(" · "));
 }
 
 console.log("\n\x1b[1m════ RÉSULTAT CORRECTIFS : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");

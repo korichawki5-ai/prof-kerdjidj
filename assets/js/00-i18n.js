@@ -624,7 +624,14 @@ window.I18N = {
   adRegEmpty:["لا طلبات تسجيل حالياً","Aucune demande pour le moment"],
   adRegEmptyS:["ستظهر هنا كل استمارة يرسلها تلميذ جديد من الموقع.","Toute nouvelle inscription envoyée depuis le site apparaîtra ici."],
 
+  /* ── الوصول إلى لوحة الأستاذة من الموقع (لم يكن هناك أي رابط ظاهر) ── */
   /* ── بوابة الإدارة: حالة الاتصال الحقيقية + تشخيص حساب الأستاذة ── */
+  adminLoginTitle:["تسجيل دخول الأستاذة","Connexion de la professeure"],
+  adminLoginGo:["الدخول بحساب Google","Se connecter avec Google"],
+  adminLoginHint:["هذه مساحة الأستاذة وحدها: الموقع عام للتلاميذ، واللوحة تُفتح بحساب Google الخاص بك.","Espace réservé à la professeure : le site est public pour les élèves, le panneau s'ouvre avec votre compte Google."],
+  adminLink:["دخول الأستاذة","Espace professeure"],
+  adminOrTeacher:["أنت الأستاذة؟","Vous êtes la professeure ?"],
+  backToSite:["العودة إلى الموقع","Retour au site"],
   loginOk:["تم الدخول بحساب Google ✓","Connexion Google réussie ✓"],
   dbReady:["الاتصال بقاعدة البيانات: جاهز ✓ — ادخلي بحساب Google الخاص بالأستاذة.","Connexion à la base : prête ✓ — connectez-vous avec le compte Google de la professeure."],
   adminRoleTitle:["تم تسجيل الدخول ✓ — لكن هذا الحساب غير مُعرَّف كأستاذة","Connexion réussie ✓ — mais ce compte n'a pas le rôle admin"],
