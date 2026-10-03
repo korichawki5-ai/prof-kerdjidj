@@ -183,12 +183,48 @@ function mountApp(role, active, opts){
    (مجموعة registrations) ويُفتح له فضاؤه. ملفه وتقدّمه يبقيان على جهازه
    هو (localStorage) — لا حساب Google ولا بيانات وهمية.
    الأستاذة وحدها تدخل بحسابها: بطاقة الدخول تبقى للوحة الإدارة.        */
+/* حالة الاتصال الحقيقية: لا رسالة ثابتة مضلّلة.
+   PKdb.mock === true يعني أن المنصة تعمل محلياً (Firebase غير محمَّل/انقطع). */
+function dbReady(){ return !!(window.PKdb && window.PKdb.mock === false); }
+function dbStatusLine(){
+  const t = window.PKi18n.t, svg = window.PK.svg;
+  return dbReady()
+    ? `<p class="gate__s">${svg('check','width="14" height="14"')}<span> ${t('dbReady')}</span></p>`
+    : `<p class="gate__s">${svg('info','width="14" height="14"')}<span> ${t('notConnected')}</span></p>`;
+}
 function loginCard(){
   const t = window.PKi18n.t, svg = window.PK.svg;
   return `<section class="gate"><div class="gate__c">${svg('lock','width="36" height="36"')}
-    <h2>${t('loginNeeded')}</h2>
+    <h2>${t('adminOnly')}</h2>
     <button class="btn btn--p btn--lg" data-gate-login>${t('navAdminLogin')} · Google</button>
-    <p class="gate__s" data-gate-msg>${t('notConnected')}</p></div></section>`;
+    ${dbStatusLine()}</div></section>`;
+}
+/* بوابة الإدارة: ثلاثة حالات مختلفة بدل رسالة واحدة غامضة
+   (أ) حساب Google مسجَّل لكن بلا صلاحية admin → تشخيص واضح + UID + خطوات؛
+   (ب) لا أحد مسجَّل → بطاقة دخول + حالة الاتصال الحقيقية. */
+function adminGate(){
+  const t = window.PKi18n.t, svg = window.PK.svg, m = window.PKdata.me;
+  if(m && m.role !== 'admin'){
+    const uid = String(m.uid || m.id || '');
+    return `<section class="gate"><div class="gate__c gate__c--f">
+      <span class="ico ico--sm ico--wn">${svg('info')}</span>
+      <h2>${t('adminRoleTitle')}</h2>
+      <p class="gate__s">${t('adminRoleSub')}</p>
+      <div class="cd" style="text-align:start;padding:16px 18px;margin-block:10px;max-width:560px">
+        <div style="font-size:.9rem"><b>${t('adminRoleAcc')}:</b> <span dir="ltr">${escH(m.email || '—')}</span></div>
+        <div style="font-size:.9rem;margin-block-start:8px"><b>${t('adminRoleUid')}:</b>
+          <code dir="ltr" style="display:inline-block;padding:3px 8px;border-radius:8px;background:var(--bg2,#f1f3f8);font-size:.85rem">${escH(uid)}</code>
+          <button class="btn btn--g btn--sm" type="button" data-gate-copy>${t('adminRoleCopy')}</button></div>
+      </div>
+      <p class="gate__s" style="max-width:620px">${t('adminRoleSteps')}</p>
+      <div class="flex gap2 wrap-f" style="justify-content:center;margin-block-start:6px">
+        <button class="btn btn--p btn--lg" data-gate-recheck>${svg('refresh','width="17" height="17"')}${t('adminRoleRecheck')}</button>
+        <button class="btn btn--g" data-gate-login>${t('navAdminLogin')} · Google</button>
+      </div>
+      <p class="gate__s"><a href="#" data-gate-out>${t('sbOut')}</a></p>
+    </div></section>`;
+  }
+  return loginCard();
 }
 function levelCard(){
   const D = window.PKdata, t = window.PKi18n.t, svg = window.PK.svg;
@@ -236,12 +272,13 @@ function regForm(){
 }
 
 const PKgate = {
+  adminGate,
   html(role){
     role = role || 'student';
     const D = window.PKdata, m = D.me, t = window.PKi18n.t;
     /* لوحة الإدارة: تبقى بحساب Google الخاص بالأستاذة (كما كانت) */
     if(role === 'admin'){
-      if(!m || (m.role !== 'admin' && !window.PKdb.mock)) return loginCard();
+      if(!m || (m.role !== 'admin' && !window.PKdb.mock)) return adminGate();
       return '';
     }
     /* فضاء التلميذ: مسجَّل على هذا الجهاز ← يدخل مباشرة بلا أي حساب.
@@ -343,6 +380,36 @@ const PKgate = {
       }finally{ re.disabled = false; delete re.dataset.busy; }
     });
 
+    /* ── نسخ معرّف الحساب (UID) لتسهيل خطوة Firebase ── */
+    const cp = mn.querySelector('[data-gate-copy]');
+    if(cp) cp.addEventListener('click', async ()=>{
+      const uid = String((window.PKdata.me && (window.PKdata.me.uid || window.PKdata.me.id)) || '');
+      if(!uid) return;
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(uid);
+        else { const ta=document.createElement('textarea'); ta.value=uid; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+        toast(t('adminRoleCopied'), 'ok', 2400);
+      }catch(e){ toast(uid, 'info', 6000); }
+    });
+
+    /* ── «أعيد التحقق»: بعد إضافة role = admin في Firebase ── */
+    const rc = mn.querySelector('[data-gate-recheck]');
+    if(rc) rc.addEventListener('click', async ()=>{
+      if(rc.dataset.busy) return;
+      rc.dataset.busy = '1'; rc.disabled = true;
+      try{
+        const u = window.PKdb.currentUser();
+        if(!u){ toast(t('notConnected'), 'wn', 3600); return; }
+        await window.PKdb.syncProfile(u);
+        await window.PKdb.hydrateMe(u);
+        document.dispatchEvent(new CustomEvent('pk:me', {detail:window.PKdata.me}));
+        const ok = window.PKdata.me && window.PKdata.me.role === 'admin';
+        toast(ok ? t('adminRoleOk') : t('adminRoleStill'), ok ? 'ok' : 'wn', ok ? 3600 : 6000);
+      }catch(err){
+        toast((window.PK && window.PK.err) ? window.PK.err(err) : t('saveErr'), 'er', 5200);
+      }finally{ rc.disabled = false; delete rc.dataset.busy; }
+    });
+
     /* ── connexion Google : لوحة الإدارة والحسابات القديمة ── */
     const lg = mn.querySelector('[data-gate-login]');
     if(lg) lg.addEventListener('click', async ()=>{
@@ -352,9 +419,10 @@ const PKgate = {
       lg.disabled = true;
       lg.innerHTML = t('loginBusy');
       try{
-        await window.PKdb.loginGoogle();
+        const u = await window.PKdb.loginGoogle();
         /* succès : pk:me va reconstruire l'espace ; en cas de redirection
            (mobile) la page se recharge d'elle-même. */
+        if(u) toast(t('loginOk') || t('adminRoleTitle'), 'ok', 2600);
       }catch(err){
         lg.disabled = false; lg.innerHTML = html0; delete lg.dataset.busy;
         toast((err && (err.friendly||err.message)) || t('saveErr'), 'er', 5600);
@@ -468,5 +536,5 @@ function bootApp(role, active, opts, render){
   });
 }
 
-window.PKapp = {sidebar, appTop, mountApp, bootApp, bindDelegated, isOn, STUDENT_NAV, ADMIN_NAV, PKgate, pendingBanner, refreshPending};
+window.PKapp = {sidebar, appTop, mountApp, bootApp, bindDelegated, isOn, STUDENT_NAV, ADMIN_NAV, PKgate, adminGate, dbReady, pendingBanner, refreshPending};
 })();

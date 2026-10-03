@@ -305,7 +305,17 @@ sec("8 · SEO et fichiers de déploiement");
   ck(".firebaserc pointe sur le bon projet", /"default":\s*"prof-kerdjidj"/.test(read(".firebaserc")));
   const fb = JSON.parse(read("firebase.json"));
   ck("firebase.json : pas de section storage (Blaze payant)", !fb.storage);
-  ck("firebase.json : le cache des assets est conservé", JSON.stringify(fb).includes("max-age=31536000"));
+  /* Sans empreinte dans le nom des fichiers (pas de build), un cache
+     « immutable » d'un an garde les anciens JS chez le visiteur : on exige
+     donc une revalidation, et le HTML en no-cache. */
+  const fbTxt = JSON.stringify(fb);
+  ck("firebase.json : assets sans cache immutable (mise à jour garantie)",
+     !fbTxt.includes("immutable") && fbTxt.includes("must-revalidate"));
+  ck("firebase.json : HTML en no-cache", fbTxt.includes("no-cache"));
+  const bust = ["index.html","student/index.html","admin/index.html"].every(f=>{
+    const h = read(f); return h.includes("assets/js/04-firebase.js?v=") && h.includes("assets/css/05-app.css?v=");
+  });
+  ck("cache-busting ?v= présent sur JS + CSS (21 pages)", bust);
   ck("firebase.json : les docs de travail ne sont pas publiées",
      fb.hosting.ignore.includes("FIXES.md") && fb.hosting.ignore.includes("README-NASHR.md"));
 }
@@ -463,6 +473,32 @@ sec("10 · Inscription sans compte : formulaire → professeure → progression 
   ck("Date de réception affichée (pas de date inventée)", !isNaN(dl.getTime()));
   ck("Aucune erreur JS (module inscriptions)", ad.errs.length === 0, ad.errs[0] || "");
   ad.dom.window.close();
+
+  /* ══ 11. porte de l'admin : plus aucun échec silencieux ══
+     On simule la connexion Google (compte réel, base réelle) pour vérifier
+     que l'écran explique POURQUOI la professeure n'entre pas encore. */
+  const g1 = await boot("admin/index.html", { seed: S10 });
+  await wait(600);
+  const wg = g1.dom.window, hg = H(g1.dom);
+  Object.defineProperty(wg.PKdb, "mock", { value:false, configurable:true });   // mode connecté
+  wg.PKdata.me = { id:"uid123", uid:"uid123", role:"student", level:"4AM",
+                   email:"prof@example.com", ar:"الأستاذة", fr:"Prof", xp:0, streak:0,
+                   mastery:{}, badges:[], doneIds:[], group:null, school:null, linked:false };
+  wg.document.dispatchEvent(new wg.CustomEvent("pk:me", { detail: wg.PKdata.me }));
+  await wait(600);
+  const gateTxt = hg.txt();
+  ck("Compte connecté sans rôle admin → écran explicatif (pas de silence)",
+     !!hg.q("[data-gate-recheck]") && !!hg.q("[data-gate-copy]"), gateTxt.slice(0, 60));
+  ck("L'écran affiche l'e-mail et l'UID à copier",
+     /prof@example\.com/.test(gateTxt) && /uid123/.test(gateTxt));
+  ck("Le panneau reste verrouillé (aucun module rendu)", !hg.q(".kpis"));
+  /* le bon compte (admin) ouvre bien le panneau */
+  wg.PKdata.me = Object.assign({}, wg.PKdata.me, { role:"admin" });
+  wg.document.dispatchEvent(new wg.CustomEvent("pk:me", { detail: wg.PKdata.me }));
+  await wait(700);
+  ck("Compte admin → panneau ouvert (accueil)", !!hg.q(".kpis") && !hg.q("[data-gate-recheck]"));
+  ck("Aucune erreur JS (porte admin)", g1.errs.length === 0, g1.errs[0] || "");
+  g1.dom.window.close();
 }
 
 console.log("\n\x1b[1m════ RÉSULTAT CORRECTIFS : " + TP + " ✅ / " + TF + " ❌ ════\x1b[0m\n");

@@ -622,7 +622,23 @@ window.I18N = {
   adRegDone:["مقبول ✓","Accepté ✓"],
   adRegAccept:["قبول وإنشاء بطاقة","Accepter et créer la fiche"],
   adRegEmpty:["لا طلبات تسجيل حالياً","Aucune demande pour le moment"],
-  adRegEmptyS:["ستظهر هنا كل استمارة يرسلها تلميذ جديد من الموقع.","Toute nouvelle inscription envoyée depuis le site apparaîtra ici."]
+  adRegEmptyS:["ستظهر هنا كل استمارة يرسلها تلميذ جديد من الموقع.","Toute nouvelle inscription envoyée depuis le site apparaîtra ici."],
+
+  /* ── بوابة الإدارة: حالة الاتصال الحقيقية + تشخيص حساب الأستاذة ── */
+  loginOk:["تم الدخول بحساب Google ✓","Connexion Google réussie ✓"],
+  dbReady:["الاتصال بقاعدة البيانات: جاهز ✓ — ادخلي بحساب Google الخاص بالأستاذة.","Connexion à la base : prête ✓ — connectez-vous avec le compte Google de la professeure."],
+  adminRoleTitle:["تم تسجيل الدخول ✓ — لكن هذا الحساب غير مُعرَّف كأستاذة","Connexion réussie ✓ — mais ce compte n'a pas le rôle admin"],
+  adminRoleSub:["لوحة الإدارة تُفتح فقط للحساب الذي يحمل الحقل role بالقيمة admin في قاعدة البيانات. هذه حماية مقصودة: لا يمكن تفعيل الصلاحية من الموقع نفسه.","Le panneau ne s'ouvre que pour le compte portant le champ role = admin dans la base. C'est une protection voulue : le rôle ne peut pas être accordé depuis le site."],
+  adminRoleAcc:["الحساب المسجَّل الآن","Compte connecté"],
+  adminRoleUid:["معرّف حسابك (UID)","Votre identifiant (UID)"],
+  adminRoleCopy:["نسخ","Copier"],
+  adminRoleCopied:["تم نسخ المعرّف ✓","Identifiant copié ✓"],
+  adminRoleSteps:["خطوات التفعيل مرة واحدة: Firebase Console ← Firestore Database ← مجموعة users ← افتحي المستند الذي معرّفه هو UID أعلاه ← أضيفي حقل role بقيمة admin ← ثم اضغطي «أعيد التحقق».","Activation (une seule fois) : Firebase Console ← Firestore ← collection users ← ouvrez le document dont l'ID est l'UID ci-dessus ← champ role = admin ← puis « Revérifier »."],
+  adminRoleRecheck:["أعيد التحقق","Revérifier"],
+  adminRoleOk:["تم التعرّف عليك كأستاذة ✓ — جاري فتح اللوحة…","Rôle admin confirmé ✓ — ouverture du panneau…"],
+  adminRoleStill:["لا يزال الحقل role غير مُفعَّل — راجعي خطوات Firebase أعلاه ثم أعيدي التحقق.","Le champ role n'est toujours pas actif — suivez les étapes ci-dessus puis réessayez."],
+  modErrT:["تعذّر فتح هذا القسم","Impossible d'ouvrir cette section"],
+  modErrS:["حدث خطأ غير متوقّع أثناء العرض — لم يُحذف أي شيء. التفاصيل للمطوّر:","Une erreur inattendue est survenue — rien n'a été supprimé. Détail :"]
 };
 
 /* ══════ MOTEUR DE TRADUCTION ══════ */

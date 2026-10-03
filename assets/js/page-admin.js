@@ -687,10 +687,8 @@ function render(mn){
   L = window.PKi18n.current();
   /* حماية اللوحة في الوضع الحيّ : role admin فقط */
   if(!window.PKdb.mock && !(window.PKdata.me && window.PKdata.me.role==='admin')){
-    mn.innerHTML = `<section class="gate"><div class="gate__c">${svg('lock','width="36" height="36"')}
-      <h2>${t('adminOnly')}</h2>
-      <button class="btn btn--p btn--lg" data-gate-login>${t('navAdminLogin')} · Google</button>
-      <p class="gate__s">${t('notConnected')}</p></div></section>`;
+    /* trois cas distincts : non connecté / connecté sans rôle admin / base locale */
+    mn.innerHTML = window.PKapp.PKgate.adminGate();
     window.PKapp.PKgate.bind(mn, ()=>render(mn)); return;
   }
   cur = moduleFromHash();
@@ -716,6 +714,12 @@ function render(mn){
   </div>
   <div id="adPanel"></div>`;
 
+  /* palette de commandes (Ctrl+K / 🔍) : elle était vide dans l'admin.
+     Chaque entrée ouvre réellement son module (aucun lien mort). */
+  window.PK.setPalette(Object.keys(MODS).map(k=>({
+    label: MODS[k].t(), icon: MODS[k].ic, group: t('adPanel'),
+    run: ()=>{ if(moduleFromHash() === k){ cur = k; show(mn); } else location.hash = k; }
+  })));
   $('#adSearch',mn).addEventListener('click',()=>window.PK.openPalette());
   $('#adPublish',mn).addEventListener('click',()=>{ confetti(70); toast(t('adPublished')||L_('تم النشر بنجاح ✓','Publication réussie ✓'),'ok',3000); });
   $$('[data-atab]',mn).forEach(b=> b.addEventListener('click',()=>{ cur=b.dataset.atab; show(mn); }));
@@ -726,8 +730,23 @@ function render(mn){
 function show(mn){
   const panel = $('#adPanel', mn) || $('#adPanel');
   const host = panel || mn;
-  host.innerHTML = `<div class="atab lpn" data-panel="${cur}">${MODS[cur].fn()}</div>`;
+  /* Isolation du rendu : en cas d'erreur on affiche un message honnête avec la
+     cause — au lieu de laisser le panneau précédent à l'écran (l'utilisateur
+     croirait alors que « cliquer sur التلاميذ » ramène à la page d'accueil). */
+  let inner;
+  try{
+    inner = MODS[cur].fn();
+  }catch(err){
+    if(window.console) console.error('[PK] module « '+cur+' » :', err);
+    inner = `<div class="cd" style="max-width:640px">
+      <div class="cd__t">${t('modErrT')}</div>
+      <p class="muted" style="font-size:.88rem;line-height:1.8">${t('modErrS')}</p>
+      <pre dir="ltr" style="white-space:pre-wrap;word-break:break-word;background:var(--bg2,#f1f3f8);border-radius:10px;padding:10px 12px;font-size:.8rem">${esc(String((err && err.message) || err)).slice(0,400)}</pre>
+      <button class="btn btn--p btn--sm mt3" data-mod-retry>${t('regRetry')}</button></div>`;
+  }
+  host.innerHTML = `<div class="atab lpn" data-panel="${cur}">${inner}</div>`;
   const p = host.firstChild;
+  const rr = $('[data-mod-retry]', p); if(rr) rr.addEventListener('click', ()=>show(mn));
   if(MODS[cur].bind) MODS[cur].bind(p);
   $('#adTitle') && ($('#adTitle').textContent = MODS[cur].t());
   $$('[data-atab]').forEach(b=> b.classList.toggle('on', b.dataset.atab===cur));
